@@ -17,7 +17,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -434,7 +433,6 @@ private fun AuraLauncher(
                     labels = showLabels,
                     accent = accentColor,
                     isDefault = isDefault,
-                    themeMode = themeMode,
                     animations = motionEnabled,
                     onOpenDrawer = { showDrawer = true; drawerTab = 0 },
                     onOpenFavorites = { showDrawer = true; drawerTab = 1 },
@@ -496,7 +494,6 @@ private fun HomeScreen(
     labels: Boolean,
     accent: Color,
     isDefault: Boolean,
-    themeMode: Int,
     animations: Boolean,
     onOpenDrawer: () -> Unit,
     onOpenFavorites: () -> Unit,
