@@ -14,6 +14,7 @@ android {
         targetSdk = 35
         versionCode = 4
         versionName = "0.3.1"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures { compose = true }
@@ -24,6 +25,10 @@ android {
     }
 
     kotlinOptions { jvmTarget = "17" }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -36,5 +41,6 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.core:core-ktx:1.15.0")
+    testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
