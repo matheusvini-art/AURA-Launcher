@@ -33,6 +33,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -312,7 +314,7 @@ private fun HomeScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Acesso rápido", color = White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.weight(1f))
-                Text("EDITAR EM BREVE", color = Muted.copy(alpha = 0.65f), fontSize = 9.sp, letterSpacing = 1.sp)
+                Text("SEUS APPS", color = Muted.copy(alpha = 0.65f), fontSize = 9.sp, letterSpacing = 1.sp)
             }
             Spacer(Modifier.height(16.dp))
             Row(
@@ -420,7 +422,10 @@ private fun SettingsScreen(
     onSetDefault: () -> Unit,
     onSave: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 18.dp)) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 22.dp, vertical = 18.dp)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("‹", color = White, fontSize = 34.sp, modifier = Modifier.clickable { onBack() }.padding(end = 12.dp))
             Column {
@@ -486,7 +491,7 @@ private fun SettingsScreen(
                 Text("Definir AURA como principal", fontWeight = FontWeight.Bold)
             }
         }
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(22.dp))
         Button(
             onClick = onSave,
             modifier = Modifier.fillMaxWidth().height(54.dp),
