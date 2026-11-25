@@ -47,6 +47,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,6 +75,7 @@ private data class LaunchableApp(
 
 class MainActivity : ComponentActivity() {
     private lateinit var appState: androidx.compose.runtime.MutableState<List<LaunchableApp>>
+    private lateinit var defaultState: androidx.compose.runtime.MutableState<Boolean>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,6 +85,7 @@ class MainActivity : ComponentActivity() {
         window.navigationBarColor = android.graphics.Color.rgb(9, 11, 16)
 
         appState = mutableStateOf(loadLaunchableApps())
+        defaultState = mutableStateOf(isDefaultHome())
         val preferences = getSharedPreferences("aura_preferences", MODE_PRIVATE)
         setContent {
             AuraTheme {
@@ -92,7 +95,7 @@ class MainActivity : ComponentActivity() {
                     defaultColumns = preferences.getInt("columns", 4),
                     defaultLabels = preferences.getBoolean("labels", true),
                     defaultAccent = preferences.getInt("accent", 0),
-                    isDefaultLauncher = { isDefaultHome() },
+                    isDefaultLauncher = defaultState.value,
                     onSetDefault = { requestDefaultLauncher() },
                     onLaunch = { packageName ->
                         packageManager.getLaunchIntentForPackage(packageName)?.let(::startActivity)
@@ -113,6 +116,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (::appState.isInitialized) appState.value = loadLaunchableApps()
+        if (::defaultState.isInitialized) defaultState.value = isDefaultHome()
     }
 
     private fun isDefaultHome(): Boolean {
@@ -176,7 +180,7 @@ private fun AuraLauncher(
     defaultColumns: Int,
     defaultLabels: Boolean,
     defaultAccent: Int,
-    isDefaultLauncher: () -> Boolean,
+    isDefaultLauncher: Boolean,
     onSetDefault: () -> Unit,
     onLaunch: (String) -> Unit,
     onSaveSettings: (Float, Int, Boolean, Int) -> Unit
@@ -188,7 +192,8 @@ private fun AuraLauncher(
     var columns by remember { mutableStateOf(defaultColumns) }
     var labels by remember { mutableStateOf(defaultLabels) }
     var accentIndex by remember { mutableStateOf(defaultAccent.coerceIn(0, AccentOptions.lastIndex)) }
-    var defaultStatus by remember { mutableStateOf(isDefaultLauncher()) }
+    var defaultStatus by remember { mutableStateOf(isDefaultLauncher) }
+    LaunchedEffect(isDefaultLauncher) { defaultStatus = isDefaultLauncher }
     val accent = AccentOptions[accentIndex]
     val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
     val date = SimpleDateFormat("EEEE, d 'de' MMMM", Locale("pt", "BR"))
@@ -216,7 +221,7 @@ private fun AuraLauncher(
                     onSetDefault = onSetDefault,
                     onSave = {
                         onSaveSettings(iconSize, columns, labels, accentIndex)
-                        defaultStatus = isDefaultLauncher()
+                        defaultStatus = isDefaultLauncher
                         showSettings = false
                     }
                 )
@@ -315,7 +320,9 @@ private fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 favorites.forEach { app ->
-                    AppIcon(app, iconSize, labels, accent, onClick = { onLaunch(app.packageName) })
+                    Box(modifier = Modifier.weight(1f)) {
+                        AppIcon(app, iconSize, labels, accent, onClick = { onLaunch(app.packageName) })
+                    }
                 }
             }
         }
