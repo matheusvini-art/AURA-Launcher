@@ -1262,7 +1262,7 @@ private fun ThemePreview(
     onClick: () -> Unit
 ) {
     Column(
-        modifier = Modifier.weight(1f).clip(RoundedCornerShape(15.dp))
+        modifier = Modifier.width(120.dp).clip(RoundedCornerShape(15.dp))
             .background(Color(0xFF222C3C)).clickable { onClick() }.padding(8.dp)
     ) {
         Box(
