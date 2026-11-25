@@ -36,7 +36,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -440,8 +440,7 @@ private fun AuraLauncher(
                     onOpenSettings = { showSettings = true },
                     onSetDefault = onSetDefault,
                     onLaunch = ::launchApp,
-                    onFolder = { activeFolder = it },
-                    onAnimations = motionEnabled
+                    onFolder = { activeFolder = it }
                 )
             }
         }
@@ -502,8 +501,7 @@ private fun HomeScreen(
     onOpenSettings: () -> Unit,
     onSetDefault: () -> Unit,
     onLaunch: (LaunchableApp) -> Unit,
-    onFolder: (AppFolder) -> Unit,
-    onAnimations: Boolean
+    onFolder: (AppFolder) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 18.dp),
@@ -514,18 +512,14 @@ private fun HomeScreen(
                 .verticalScroll(rememberScrollState())
                 .pointerInput(Unit) {
                     var dragX = 0f
-                    var dragY = 0f
-                    detectDragGestures(
+                    detectHorizontalDragGestures(
                         onDragEnd = {
                             if (dragX < -110f) onOpenDrawer()
-                            else if (dragY < -130f) onOpenSettings()
                             dragX = 0f
-                            dragY = 0f
                         },
-                        onDragCancel = { dragX = 0f; dragY = 0f }
+                        onDragCancel = { dragX = 0f }
                     ) { change, amount ->
-                        dragX += amount.x
-                        dragY += amount.y
+                        dragX += amount
                         change.consume()
                     }
                 }
@@ -609,8 +603,8 @@ private fun HomeScreen(
 
             AnimatedVisibility(
                 visible = recentApps.isNotEmpty(),
-                enter = if (onAnimations) fadeIn() else EnterTransition.None,
-                exit = if (onAnimations) fadeOut() else ExitTransition.None
+                enter = if (animations) fadeIn() else EnterTransition.None,
+                exit = if (animations) fadeOut() else ExitTransition.None
             ) {
                 Column {
                     Spacer(Modifier.height(22.dp))
