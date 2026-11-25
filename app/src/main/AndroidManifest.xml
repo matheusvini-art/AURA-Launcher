@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -8,7 +9,9 @@
 
     <application
         android:allowBackup="false"
-        android:label="AURA"
+        android:label="AURA Launcher"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
