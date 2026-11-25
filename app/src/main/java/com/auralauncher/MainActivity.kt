@@ -966,65 +966,194 @@ private fun DrawerScreen(
     onLaunch: (LaunchableApp) -> Unit,
     onAppMenu: (LaunchableApp) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp)) {
+    Column(
+        modifier = Modifier.fillMaxSize()
+            .background(Brush.verticalGradient(listOf(Color(0xFF15243A), AuraBlack, Color(0xFF080D17))))
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("‹", color = AuraWhite, fontSize = 34.sp,
-                modifier = Modifier.clickable { onBack() }.padding(end = 12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Aplicativos", color = AuraWhite, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
-                Text("${apps.size} exibidos · $totalApps encontrados", color = AuraMuted, fontSize = 11.sp)
+            Box(
+                modifier = Modifier.size(40.dp).clip(CircleShape)
+                    .background(AuraPanel).clickable { onBack() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("‹", color = AuraWhite, fontSize = 27.sp)
             }
-            Text("AURA", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Biblioteca", color = AuraWhite, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+                Text("Seus aplicativos em um só lugar", color = AuraMuted, fontSize = 10.sp)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("AURA", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                Text("$totalApps APPS", color = AuraMuted, fontSize = 8.sp, letterSpacing = 1.sp)
+            }
         }
+
+        Spacer(Modifier.height(19.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2A41)),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(start = 14.dp, end = 9.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("⌕", color = accent, fontSize = 24.sp)
+                TextField(
+                    value = search,
+                    onValueChange = onSearch,
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Buscar aplicativo...", color = AuraMuted) },
+                    singleLine = true,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedTextColor = AuraWhite,
+                        unfocusedTextColor = AuraWhite,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        cursorColor = accent
+                    )
+                )
+                if (search.isNotBlank()) {
+                    Text(
+                        "×",
+                        color = AuraMuted,
+                        fontSize = 20.sp,
+                        modifier = Modifier.clickable { onSearch("") }.padding(horizontal = 8.dp)
+                    )
+                }
+            }
+        }
+
         Spacer(Modifier.height(15.dp))
-        TextField(
-            value = search,
-            onValueChange = onSearch,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp)),
-            placeholder = { Text("Buscar aplicativo", color = AuraMuted) },
-            singleLine = true,
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = AuraPanel,
-                unfocusedContainerColor = AuraPanel,
-                focusedTextColor = AuraWhite,
-                unfocusedTextColor = AuraWhite,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                cursorColor = accent
-            )
-        )
-        Spacer(Modifier.height(13.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            ChoiceChip("Todos", tab == 0, accent) { onTab(0) }
-            ChoiceChip("Favoritos", tab == 1, accent) { onTab(1) }
-            ChoiceChip("Ocultos", tab == 2, accent) { onTab(2) }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF121D2E)),
+            shape = RoundedCornerShape(15.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                DrawerTab("Todos", tab == 0, accent, Modifier.weight(1f)) { onTab(0) }
+                DrawerTab("Favoritos", tab == 1, accent, Modifier.weight(1f)) { onTab(1) }
+                DrawerTab("Ocultos", tab == 2, accent, Modifier.weight(1f)) { onTab(2) }
+            }
         }
-        Spacer(Modifier.height(14.dp))
+
+        Spacer(Modifier.height(18.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    when (tab) {
+                        1 -> "Seus favoritos"
+                        2 -> "Aplicativos ocultos"
+                        else -> "Todos os aplicativos"
+                    },
+                    color = AuraWhite,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    "${apps.size} ${if (apps.size == 1) "aplicativo" else "aplicativos"}",
+                    color = AuraMuted,
+                    fontSize = 10.sp
+                )
+            }
+            Text("TOQUE PARA ABRIR", color = AuraMuted.copy(alpha = 0.72f), fontSize = 8.sp, letterSpacing = 1.sp)
+        }
+        Spacer(Modifier.height(11.dp))
+
         if (apps.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Nenhum aplicativo nesta seção.", color = AuraMuted, fontSize = 13.sp)
+            Box(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = AuraPanel)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(22.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("⌕", color = accent, fontSize = 36.sp)
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            if (search.isNotBlank()) "Nada encontrado" else "Esta seção está vazia",
+                            color = AuraWhite,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            if (search.isNotBlank()) "Experimente outro nome ou termo." else "Os aplicativos aparecerão aqui quando estiverem disponíveis.",
+                            color = AuraMuted,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
             }
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns.coerceIn(3, 6)),
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(bottom = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
+                contentPadding = PaddingValues(bottom = 22.dp),
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(apps, key = { it.packageName }) { app ->
-                    AppIcon(
-                        app = app,
-                        iconSize = iconSize,
-                        labels = labels,
-                        onClick = { if (tab == 2) onAppMenu(app) else onLaunch(app) },
-                        onLongClick = { onAppMenu(app) }
-                    )
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(17.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF17243A))
+                    ) {
+                        AppIcon(
+                            app = app,
+                            iconSize = iconSize,
+                            labels = labels,
+                            onClick = { if (tab == 2) onAppMenu(app) else onLaunch(app) },
+                            onLongClick = { onAppMenu(app) }
+                        )
+                    }
                 }
             }
         }
-        Text("Toque para abrir · Segure para opções", color = AuraMuted.copy(alpha = 0.65f),
-            fontSize = 10.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp))
+
+        Spacer(Modifier.height(7.dp))
+        Text(
+            "Segure um aplicativo para favoritar, ocultar ou gerenciar.",
+            color = AuraMuted.copy(alpha = 0.72f),
+            fontSize = 9.sp,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+    }
+}
+
+@Composable
+private fun DrawerTab(
+    title: String,
+    selected: Boolean,
+    accent: Color,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = modifier.clip(RoundedCornerShape(11.dp))
+            .background(if (selected) accent else Color.Transparent)
+            .clickable { onClick() }
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            title,
+            color = if (selected) AuraBlack else AuraMuted,
+            fontSize = 10.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+        )
     }
 }
 
