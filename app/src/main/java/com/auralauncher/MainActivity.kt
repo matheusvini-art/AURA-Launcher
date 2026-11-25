@@ -1,6 +1,7 @@
 package com.auralauncher
 
 import android.app.role.RoleManager
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -12,6 +13,7 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -78,6 +80,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.Toast
 import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
@@ -99,6 +102,17 @@ private data class AppFolder(
 class MainActivity : ComponentActivity() {
     private lateinit var appState: androidx.compose.runtime.MutableState<List<LaunchableApp>>
     private lateinit var defaultState: androidx.compose.runtime.MutableState<Boolean>
+
+    private val homeRoleLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            val selected = isDefaultHome()
+            if (::defaultState.isInitialized) defaultState.value = selected
+            Toast.makeText(
+                this,
+                if (selected) "AURA definido como tela inicial." else "O Android não alterou o app de início.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -177,28 +191,64 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun isDefaultHome(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            getSystemService(RoleManager::class.java).isRoleHeld(RoleManager.ROLE_HOME)
-        } else {
-            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-            packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
-                ?.activityInfo?.packageName == packageName
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            if (roleManager?.isRoleHeld(RoleManager.ROLE_HOME) == true) return true
         }
+        val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val resolved = packageManager.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+        return resolved?.activityInfo?.packageName == packageName
     }
 
     private fun requestDefaultLauncher() {
+        if (isDefaultHome()) {
+            if (::defaultState.isInitialized) defaultState.value = true
+            Toast.makeText(this, "O AURA já é sua tela inicial.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roleManager = getSystemService(RoleManager::class.java)
-            if (roleManager.isRoleAvailable(RoleManager.ROLE_HOME) &&
-                !roleManager.isRoleHeld(RoleManager.ROLE_HOME)
-            ) {
-                startActivity(roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME))
-            } else {
-                startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
+            if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
+                try {
+                    homeRoleLauncher.launch(roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME))
+                    return
+                } catch (_: ActivityNotFoundException) {
+                    // Fall through to the system settings fallback.
+                } catch (_: SecurityException) {
+                    // Fall through to the system settings fallback.
+                }
             }
-        } else {
-            startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
         }
+        openHomeAppSettings()
+    }
+
+    private fun openHomeAppSettings() {
+        val actions = listOf(
+            Settings.ACTION_HOME_SETTINGS,
+            Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
+            Settings.ACTION_SETTINGS
+        )
+        for (action in actions) {
+            try {
+                startActivity(Intent(action))
+                Toast.makeText(
+                    this,
+                    "Em Aplicativo de início, selecione AURA Launcher e escolha Sempre.",
+                    Toast.LENGTH_LONG
+                ).show()
+                return
+            } catch (_: ActivityNotFoundException) {
+                // Try the next system settings entry point.
+            } catch (_: SecurityException) {
+                // Try the next system settings entry point.
+            }
+        }
+        Toast.makeText(
+            this,
+            "Abra Configurações > Aplicativos padrão > App de início e selecione AURA Launcher.",
+            Toast.LENGTH_LONG
+        ).show()
     }
 
     @Suppress("DEPRECATION")
@@ -250,17 +300,17 @@ private fun decodeFolders(raw: String?): List<AppFolder> {
     }
 }
 
-private val AuraBlack = Color(0xFF080A0F)
-private val AuraPanel = Color(0xFF171C27)
-private val AuraPanelRaised = Color(0xFF202737)
-private val AuraMuted = Color(0xFF98A2B3)
-private val AuraWhite = Color(0xFFF5F7FB)
+private val AuraBlack = Color(0xFF0B1424)
+private val AuraPanel = Color(0xFF17243A)
+private val AuraPanelRaised = Color(0xFF202F49)
+private val AuraMuted = Color(0xFF9EACC1)
+private val AuraWhite = Color(0xFFF3F6FC)
 private val AccentOptions = listOf(
-    Color(0xFFC7D2FE),
-    Color(0xFFB9F3D0),
-    Color(0xFFF5C7E7),
-    Color(0xFFFFD59E),
-    Color(0xFF9DECF2)
+    Color(0xFF77DCE5),
+    Color(0xFFB6B9FF),
+    Color(0xFFB9E8D2),
+    Color(0xFFF3C6DD),
+    Color(0xFFFFD59F)
 )
 
 @Composable
