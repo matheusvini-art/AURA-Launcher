@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -968,6 +969,7 @@ private fun DockAction(symbol: String, title: String, accent: Color, onClick: ()
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AppIcon(
     app: LaunchableApp,
