@@ -120,9 +120,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         @Suppress("DEPRECATION")
-        window.statusBarColor = android.graphics.Color.rgb(9, 11, 16)
+        window.statusBarColor = android.graphics.Color.rgb(17, 16, 15)
         @Suppress("DEPRECATION")
-        window.navigationBarColor = android.graphics.Color.rgb(9, 11, 16)
+        window.navigationBarColor = android.graphics.Color.rgb(17, 16, 15)
 
         appState = mutableStateOf(loadLaunchableApps())
         defaultState = mutableStateOf(isDefaultHome())
@@ -671,7 +671,7 @@ private fun HomeScreen(
                     .fillMaxWidth()
                     .clickable { onOpenDrawer() },
                 shape = RoundedCornerShape(19.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2A40))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF2E2926))
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
@@ -726,7 +726,7 @@ private fun HomeScreen(
                             Spacer(Modifier.height(7.dp))
                             Text(
                                 "${favorites.size} favoritos  ·  ${recentApps.size} recentes  ·  ${folders.size} pastas",
-                                color = Color(0xFFC1CBD9),
+                                color = Color(0xFFD2C5B9),
                                 fontSize = 10.sp
                             )
                         }
@@ -968,7 +968,7 @@ private fun DrawerScreen(
 ) {
     Column(
         modifier = Modifier.fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF38302C), AuraBlack, Color(0xFF080D17))))
+            .background(Brush.verticalGradient(listOf(Color(0xFF38302C), AuraBlack, Color(0xFF0C0B0A))))
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1227,7 +1227,7 @@ private fun SettingsScreen(
                     )
                     Text(
                         if (isDefault) "O AURA está cuidando da sua tela inicial." else "Escolha o AURA como tela inicial do Android.",
-                        color = Color(0xFFC0CBD9),
+                        color = Color(0xFFD2C5B9),
                         fontSize = 10.sp
                     )
                 }
