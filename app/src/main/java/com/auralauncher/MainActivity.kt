@@ -32,6 +32,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -421,7 +424,7 @@ private fun AuraLauncher(
     }
 
     Surface(modifier = Modifier.fillMaxSize(), color = AuraBlack) {
-        Box(modifier = Modifier.fillMaxSize().background(background)) {
+        Box(modifier = Modifier.fillMaxSize().background(background).windowInsetsPadding(WindowInsets.safeDrawing)) {
             when {
                 showSettings -> SettingsScreen(
                     iconSize = currentIconSize,
@@ -601,7 +604,7 @@ private fun HomeScreen(
                         letterSpacing = 5.sp
                     )
                     Text(
-                        "PERSONAL SPACE",
+                        "SEU ESPAÇO PESSOAL",
                         color = AuraMuted.copy(alpha = 0.78f),
                         fontSize = 9.sp,
                         letterSpacing = 2.1.sp
@@ -706,7 +709,7 @@ private fun HomeScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "AURA / OVERVIEW",
+                                "AURA / VISÃO GERAL",
                                 color = accent,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
@@ -1109,7 +1112,7 @@ private fun SettingsScreen(
             }
         }
 
-        SettingsHeading("HOME SCREEN", accent)
+        SettingsHeading("TELA INICIAL", accent)
         SettingCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -1130,7 +1133,7 @@ private fun SettingsScreen(
             SettingSwitch("Nome dos aplicativos", "Mostrar o nome abaixo dos ícones", labels, onLabels)
         }
 
-        SettingsHeading("VISUAL IDENTITY", accent)
+        SettingsHeading("IDENTIDADE VISUAL", accent)
         SettingCard {
             Text("Tema", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -1165,7 +1168,7 @@ private fun SettingsScreen(
             SettingSwitch("Movimento suave", "Animação da seção de aplicativos recentes", animations, onAnimations)
         }
 
-        SettingsHeading("ORGANIZATION", accent)
+        SettingsHeading("ORGANIZAÇÃO", accent)
         SettingCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -1194,7 +1197,7 @@ private fun SettingsScreen(
             }
         }
 
-        SettingsHeading("ANDROID SYSTEM", accent)
+        SettingsHeading("SISTEMA ANDROID", accent)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
