@@ -847,7 +847,7 @@ private fun SettingsScreen(
                 ChoiceChip("Recentes", sortMode == 1, accent) { onSort(1) }
             }
             Divider(color = Color.White.copy(alpha = 0.08f))
-            SettingSwitch("Animações", "Ativa transições e movimentos suaves", animations, onAnimations)
+            SettingSwitch("Animação de recentes", "Suaviza a entrada e a saída dos aplicativos recentes", animations, onAnimations)
         }
 
         SettingsHeading("ORGANIZAÇÃO", accent)
