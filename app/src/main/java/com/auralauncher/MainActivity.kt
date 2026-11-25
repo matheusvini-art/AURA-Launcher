@@ -36,9 +36,16 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -433,7 +440,8 @@ private fun AuraLauncher(
                     onOpenSettings = { showSettings = true },
                     onSetDefault = onSetDefault,
                     onLaunch = ::launchApp,
-                    onFolder = { activeFolder = it }
+                    onFolder = { activeFolder = it },
+                    onAnimations = motionEnabled
                 )
             }
         }
@@ -494,14 +502,33 @@ private fun HomeScreen(
     onOpenSettings: () -> Unit,
     onSetDefault: () -> Unit,
     onLaunch: (LaunchableApp) -> Unit,
-    onFolder: (AppFolder) -> Unit
+    onFolder: (AppFolder) -> Unit,
+    onAnimations: Boolean
 ) {
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
-            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
+            modifier = Modifier.weight(1f)
+                .verticalScroll(rememberScrollState())
+                .pointerInput(Unit) {
+                    var dragX = 0f
+                    var dragY = 0f
+                    detectDragGestures(
+                        onDragEnd = {
+                            if (dragX < -110f) onOpenDrawer()
+                            else if (dragY < -130f) onOpenSettings()
+                            dragX = 0f
+                            dragY = 0f
+                        },
+                        onDragCancel = { dragX = 0f; dragY = 0f }
+                    ) { change, amount ->
+                        dragX += amount.x
+                        dragY += amount.y
+                        change.consume()
+                    }
+                }
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -580,14 +607,20 @@ private fun HomeScreen(
                 }
             }
 
-            if (recentApps.isNotEmpty()) {
-                Spacer(Modifier.height(22.dp))
-                Text("Abertos recentemente", color = AuraWhite, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(12.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(recentApps, key = { it.packageName }) { app ->
-                        Box(Modifier.width(70.dp)) {
-                            AppIcon(app, (iconSize * 0.88f), labels, onClick = { onLaunch(app) })
+            AnimatedVisibility(
+                visible = recentApps.isNotEmpty(),
+                enter = if (onAnimations) fadeIn() else EnterTransition.None,
+                exit = if (onAnimations) fadeOut() else ExitTransition.None
+            ) {
+                Column {
+                    Spacer(Modifier.height(22.dp))
+                    Text("Abertos recentemente", color = AuraWhite, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(12.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(recentApps, key = { it.packageName }) { app ->
+                            Box(Modifier.width(70.dp)) {
+                                AppIcon(app, (iconSize * 0.88f), labels, onClick = { onLaunch(app) })
+                            }
                         }
                     }
                 }
@@ -642,6 +675,12 @@ private fun HomeScreen(
                 }
             }
             Spacer(Modifier.height(9.dp))
+            Text(
+                "Deslize para a esquerda: aplicativos · para cima: personalizar",
+                color = AuraMuted.copy(alpha = 0.72f),
+                fontSize = 9.sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 2.dp)
+            )
             Text(
                 if (isDefault) "AURA é sua tela inicial" else "Escolha o AURA como sua tela inicial",
                 color = AuraMuted,
