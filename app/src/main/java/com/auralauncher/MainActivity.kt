@@ -303,17 +303,17 @@ private fun decodeFolders(raw: String?): List<AppFolder> {
     }
 }
 
-private val AuraBlack = Color(0xFF0B1424)
-private val AuraPanel = Color(0xFF17243A)
-private val AuraPanelRaised = Color(0xFF202F49)
-private val AuraMuted = Color(0xFF9EACC1)
-private val AuraWhite = Color(0xFFF3F6FC)
+private val AuraBlack = Color(0xFF11100F)
+private val AuraPanel = Color(0xFF252321)
+private val AuraPanelRaised = Color(0xFF302C29)
+private val AuraMuted = Color(0xFFB4AAA2)
+private val AuraWhite = Color(0xFFF5F0EA)
 private val AccentOptions = listOf(
-    Color(0xFF77DCE5),
-    Color(0xFFB6B9FF),
-    Color(0xFFB9E8D2),
-    Color(0xFFF3C6DD),
-    Color(0xFFFFD59F)
+    Color(0xFFFF895F),
+    Color(0xFFE8CBB4),
+    Color(0xFFB9C8B5),
+    Color(0xFFD9B8C6),
+    Color(0xFFE7B96F)
 )
 
 @Composable
@@ -378,7 +378,7 @@ private fun AuraLauncher(
     val background = if (themeMode == 1) {
         Brush.verticalGradient(listOf(Color.Black, Color(0xFF050505), Color.Black))
     } else {
-        Brush.verticalGradient(listOf(Color(0xFF182131), AuraBlack, Color(0xFF090B11)))
+        Brush.verticalGradient(listOf(Color(0xFF3A3430), AuraBlack, Color(0xFF0C0B0A)))
     }
     val appMap = remember(apps) { apps.associateBy { it.packageName } }
     val favoriteApps = apps.filter { it.packageName in favorites && it.packageName !in hidden }
@@ -567,7 +567,7 @@ private fun HomeScreen(
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(Color(0xFF15243A), Color(0xFF0B1424), Color(0xFF080D17))
+                    listOf(Color(0xFF3B3430), Color(0xFF171514), Color(0xFF0C0B0A))
                 )
             )
             .padding(horizontal = 22.dp, vertical = 16.dp),
@@ -698,7 +698,7 @@ private fun HomeScreen(
                         .fillMaxWidth()
                         .background(
                             Brush.linearGradient(
-                                listOf(Color(0xFF344D69), Color(0xFF1A304A), Color(0xFF18253A))
+                                listOf(Color(0xFF57463C), Color(0xFF342A25), Color(0xFF211C19))
                             )
                         )
                         .padding(19.dp)
@@ -802,7 +802,7 @@ private fun HomeScreen(
                             Card(
                                 modifier = Modifier.weight(1f).clickable { onLaunch(app) },
                                 shape = RoundedCornerShape(18.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF17243A))
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF292421))
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 13.dp),
@@ -925,7 +925,7 @@ private fun HomeScreen(
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1D2B40)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF2E2926)),
             shape = RoundedCornerShape(23.dp)
         ) {
             Row(
@@ -968,7 +968,7 @@ private fun DrawerScreen(
 ) {
     Column(
         modifier = Modifier.fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF15243A), AuraBlack, Color(0xFF080D17))))
+            .background(Brush.verticalGradient(listOf(Color(0xFF38302C), AuraBlack, Color(0xFF080D17))))
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -993,7 +993,7 @@ private fun DrawerScreen(
         Spacer(Modifier.height(19.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2A41)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF302B28)),
             shape = RoundedCornerShape(18.dp)
         ) {
             Row(
@@ -1031,7 +1031,7 @@ private fun DrawerScreen(
         Spacer(Modifier.height(15.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF121D2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1D1A18)),
             shape = RoundedCornerShape(15.dp)
         ) {
             Row(
@@ -1109,7 +1109,7 @@ private fun DrawerScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(17.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF17243A))
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF292421))
                     ) {
                         AppIcon(
                             app = app,
@@ -1186,7 +1186,7 @@ private fun SettingsScreen(
     val accent = AccentOptions[accentIndex]
     Column(
         modifier = Modifier.fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF15243A), AuraBlack)))
+            .background(Brush.verticalGradient(listOf(Color(0xFF38302C), AuraBlack)))
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 21.dp, vertical = 16.dp)
     ) {
@@ -1210,7 +1210,7 @@ private fun SettingsScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF263C58))
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF4A3A32))
         ) {
             Row(
                 modifier = Modifier.padding(17.dp),
@@ -1266,7 +1266,7 @@ private fun SettingsScreen(
         SettingCard {
             Text("Tema", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                ThemePreview("Midnight", themeMode == 0, Color(0xFF17243A), accent) { onTheme(0) }
+                ThemePreview("Graphite", themeMode == 0, Color(0xFF292421), accent) { onTheme(0) }
                 ThemePreview("AMOLED", themeMode == 1, Color(0xFF050505), accent) { onTheme(1) }
             }
             Divider(color = Color.White.copy(alpha = 0.08f))
@@ -1330,7 +1330,7 @@ private fun SettingsScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF17243A))
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF292421))
         ) {
             Column(modifier = Modifier.padding(17.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1395,7 +1395,7 @@ private fun ThemePreview(
 ) {
     Column(
         modifier = Modifier.width(120.dp).clip(RoundedCornerShape(15.dp))
-            .background(Color(0xFF222C3C)).clickable { onClick() }.padding(8.dp)
+            .background(Color(0xFF3A302B)).clickable { onClick() }.padding(8.dp)
     ) {
         Box(
             modifier = Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(10.dp))
@@ -1455,7 +1455,7 @@ private fun ChoiceChip(label: String, selected: Boolean, accent: Color, onClick:
         fontWeight = FontWeight.SemiBold,
         fontSize = 11.sp,
         modifier = Modifier.clip(RoundedCornerShape(12.dp))
-            .background(if (selected) accent else Color(0xFF2A3040))
+            .background(if (selected) accent else Color(0xFF39322E))
             .clickable { onClick() }
             .padding(horizontal = 15.dp, vertical = 9.dp)
     )
