@@ -484,6 +484,7 @@ private fun AuraLauncher(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HomeScreen(
     time: String,
