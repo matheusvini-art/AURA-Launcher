@@ -552,18 +552,33 @@ private fun HomeScreen(
     onLaunch: (LaunchableApp) -> Unit,
     onFolder: (AppFolder) -> Unit
 ) {
+    val hour = time.substringBefore(":").toIntOrNull() ?: 12
+    val greeting = when (hour) {
+        in 5..11 -> "BOM DIA"
+        in 12..17 -> "BOA TARDE"
+        else -> "BOA NOITE"
+    }
+
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 18.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFF15243A), Color(0xFF0B1424), Color(0xFF080D17))
+                )
+            )
+            .padding(horizontal = 22.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .pointerInput(Unit) {
                     var dragX = 0f
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            if (dragX < -110f) onOpenDrawer()
+                            if (dragX < -105f) onOpenDrawer()
                             dragX = 0f
                         },
                         onDragCancel = { dragX = 0f }
@@ -573,57 +588,180 @@ private fun HomeScreen(
                     }
                 }
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         "A U R A",
                         color = accent,
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 5.sp
                     )
-                    Text("Seu espaço. Seu ritmo.", color = AuraMuted, fontSize = 12.sp)
+                    Text(
+                        "PERSONAL SPACE",
+                        color = AuraMuted.copy(alpha = 0.78f),
+                        fontSize = 9.sp,
+                        letterSpacing = 2.1.sp
+                    )
                 }
-                Text(
-                    if (isDefault) "LAUNCHER ATIVO" else "DEFINIR COMO PRINCIPAL",
-                    color = if (isDefault) Color(0xFF9DE5BD) else accent,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clip(CircleShape)
-                        .background(AuraPanel)
-                        .clickable { onSetDefault() }
-                        .padding(horizontal = 11.dp, vertical = 10.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(accent.copy(alpha = 0.28f), Color.White.copy(alpha = 0.07f))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("A", color = AuraWhite, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
 
-            Spacer(Modifier.height(36.dp))
-            Text(time, color = AuraWhite, fontSize = 76.sp, fontWeight = FontWeight.Light, letterSpacing = (-4).sp)
-            Text(date, color = AuraMuted, fontSize = 13.sp)
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(32.dp))
+            Text(
+                greeting,
+                color = accent,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.3.sp
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Text(
+                    time,
+                    color = AuraWhite,
+                    fontSize = 62.sp,
+                    fontWeight = FontWeight.Light,
+                    letterSpacing = (-3.5).sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                ) {
+                    Text(
+                        if (isDefault) "● ATIVO" else "○ NÃO PADRÃO",
+                        color = if (isDefault) Color(0xFF9BE4C0) else AuraMuted,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Text("TELA INICIAL", color = AuraMuted, fontSize = 8.sp, letterSpacing = 1.2.sp)
+                }
+            }
+            Text(
+                date.replaceFirstChar { it.uppercase(Locale("pt", "BR")) },
+                color = AuraMuted,
+                fontSize = 13.sp
+            )
 
+            Spacer(Modifier.height(23.dp))
             Card(
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.055f)),
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenDrawer() },
+                shape = RoundedCornerShape(19.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2A40))
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Text("⌕", color = accent, fontSize = 25.sp)
+                    Spacer(Modifier.width(11.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Tudo no seu alcance", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                        Text("Um espaço simples, rápido e do seu jeito.", color = AuraMuted, fontSize = 11.sp)
+                        Text("Buscar aplicativos", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text("Encontre o que precisa rapidamente", color = AuraMuted, fontSize = 10.sp)
                     }
-                    Text("✦", color = accent, fontSize = 30.sp)
+                    Text("↗", color = AuraMuted, fontSize = 17.sp)
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.linearGradient(
+                                listOf(Color(0xFF344D69), Color(0xFF1A304A), Color(0xFF18253A))
+                            )
+                        )
+                        .padding(19.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "AURA / OVERVIEW",
+                                color = accent,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.7.sp
+                            )
+                            Spacer(Modifier.height(7.dp))
+                            Text(
+                                "Seu celular.\nDo seu jeito.",
+                                color = AuraWhite,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                lineHeight = 27.sp
+                            )
+                            Spacer(Modifier.height(7.dp))
+                            Text(
+                                "${favorites.size} favoritos  ·  ${recentApps.size} recentes  ·  ${folders.size} pastas",
+                                color = Color(0xFFC1CBD9),
+                                fontSize = 10.sp
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(76.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.07f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(54.dp)
+                                    .clip(CircleShape)
+                                    .background(accent.copy(alpha = 0.16f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("✦", color = accent, fontSize = 34.sp)
+                            }
+                        }
+                    }
                 }
             }
 
             Spacer(Modifier.height(25.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Seus favoritos", color = AuraWhite, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.weight(1f))
-                Text("VER TODOS", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { onOpenFavorites() }.padding(6.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Acesso rápido", color = AuraWhite, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Seus aplicativos favoritos", color = AuraMuted, fontSize = 10.sp)
+                }
+                Text(
+                    "EDITAR",
+                    color = accent,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.clickable { onOpenFavorites() }.padding(7.dp)
+                )
             }
             Spacer(Modifier.height(12.dp))
             if (favorites.isEmpty()) {
@@ -632,21 +770,61 @@ private fun HomeScreen(
                     shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(containerColor = AuraPanel)
                 ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("Monte seu acesso rápido", color = AuraWhite, fontWeight = FontWeight.Medium)
-                        Text("Abra Aplicativos e segure um ícone para favoritar.", color = AuraMuted, fontSize = 11.sp)
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.size(42.dp).clip(RoundedCornerShape(13.dp))
+                                .background(accent.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("+", color = accent, fontSize = 25.sp)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Monte seu espaço", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Segure um app na biblioteca para favoritar.", color = AuraMuted, fontSize = 10.sp)
+                        }
+                        Text("›", color = AuraMuted, fontSize = 22.sp)
                     }
                 }
             } else {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(vertical = 3.dp)
-                ) {
-                    items(favorites.take(10), key = { it.packageName }) { app ->
-                        Box(Modifier.width(70.dp)) {
-                            AppIcon(app, iconSize, labels, onClick = { onLaunch(app) })
+                favorites.take(4).chunked(2).forEach { pair ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        pair.forEach { app ->
+                            Card(
+                                modifier = Modifier.weight(1f).clickable { onLaunch(app) },
+                                shape = RoundedCornerShape(18.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF17243A))
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 13.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Image(
+                                        bitmap = remember(app.packageName) { app.icon.toImageBitmap() },
+                                        contentDescription = app.title,
+                                        modifier = Modifier.size(39.dp).clip(RoundedCornerShape(12.dp))
+                                    )
+                                    Spacer(Modifier.width(9.dp))
+                                    Text(
+                                        app.title,
+                                        color = AuraWhite,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
                         }
+                        if (pair.size == 1) Spacer(Modifier.weight(1f))
                     }
+                    Spacer(Modifier.height(9.dp))
                 }
             }
 
@@ -656,13 +834,40 @@ private fun HomeScreen(
                 exit = if (animations) fadeOut() else ExitTransition.None
             ) {
                 Column {
-                    Spacer(Modifier.height(22.dp))
-                    Text("Abertos recentemente", color = AuraWhite, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(14.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Continue de onde parou", color = AuraWhite, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Aplicativos abertos recentemente", color = AuraMuted, fontSize = 10.sp)
+                        }
+                        Text("RECENTES", color = accent, fontSize = 8.sp, letterSpacing = 1.sp)
+                    }
                     Spacer(Modifier.height(12.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         items(recentApps, key = { it.packageName }) { app ->
-                            Box(Modifier.width(70.dp)) {
-                                AppIcon(app, (iconSize * 0.88f), labels, onClick = { onLaunch(app) })
+                            Card(
+                                modifier = Modifier.width(82.dp).clickable { onLaunch(app) },
+                                colors = CardDefaults.cardColors(containerColor = AuraPanel),
+                                shape = RoundedCornerShape(17.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 13.dp, horizontal = 6.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Image(
+                                        bitmap = remember(app.packageName) { app.icon.toImageBitmap() },
+                                        contentDescription = app.title,
+                                        modifier = Modifier.size(39.dp).clip(RoundedCornerShape(12.dp))
+                                    )
+                                    Spacer(Modifier.height(7.dp))
+                                    Text(
+                                        app.title,
+                                        color = AuraWhite,
+                                        fontSize = 9.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
@@ -672,12 +877,19 @@ private fun HomeScreen(
             if (folders.isNotEmpty()) {
                 Spacer(Modifier.height(22.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Suas pastas", color = AuraWhite, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.weight(1f))
-                    Text("GERENCIAR", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { onOpenSettings() }.padding(6.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Suas coleções", color = AuraWhite, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Aplicativos organizados por você", color = AuraMuted, fontSize = 10.sp)
+                    }
+                    Text(
+                        "GERENCIAR",
+                        color = accent,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { onOpenSettings() }.padding(6.dp)
+                    )
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(11.dp))
                 folders.forEach { folder ->
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable { onFolder(folder) },
@@ -685,52 +897,53 @@ private fun HomeScreen(
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 15.dp, vertical = 13.dp),
+                            modifier = Modifier.padding(horizontal = 15.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("▦", color = accent, fontSize = 22.sp)
-                            Spacer(Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(folder.name, color = AuraWhite, fontWeight = FontWeight.Medium)
-                                Text("${folder.packages.size} aplicativos", color = AuraMuted, fontSize = 11.sp)
+                            Box(
+                                modifier = Modifier.size(37.dp).clip(RoundedCornerShape(11.dp))
+                                    .background(accent.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("▦", color = accent, fontSize = 18.sp)
                             }
-                            Text("›", color = AuraMuted, fontSize = 24.sp)
+                            Spacer(Modifier.width(11.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(folder.name, color = AuraWhite, fontWeight = FontWeight.Medium, fontSize = 12.sp)
+                                Text("${folder.packages.size} aplicativos", color = AuraMuted, fontSize = 10.sp)
+                            }
+                            Text("›", color = AuraMuted, fontSize = 21.sp)
                         }
                     }
                 }
             }
+            Spacer(Modifier.height(22.dp))
         }
 
-        Column {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = AuraPanelRaised.copy(alpha = 0.96f)),
-                shape = RoundedCornerShape(26.dp),
-                modifier = Modifier.fillMaxWidth()
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1D2B40)),
+            shape = RoundedCornerShape(23.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    DockAction("▦", "Aplicativos", accent, onOpenDrawer)
-                    DockAction("✦", "Favoritos", accent, onOpenFavorites)
-                    DockAction("⚙", "Personalizar", accent, onOpenSettings)
-                }
+                DockAction("▦", "Biblioteca", accent, onOpenDrawer)
+                DockAction("✦", "Favoritos", accent, onOpenFavorites)
+                DockAction("◈", "Personalizar", accent, onOpenSettings)
             }
-            Spacer(Modifier.height(9.dp))
-            Text(
-                "Deslize para a esquerda: aplicativos · para cima: personalizar",
-                color = AuraMuted.copy(alpha = 0.72f),
-                fontSize = 9.sp,
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 2.dp)
-            )
-            Text(
-                if (isDefault) "AURA é sua tela inicial" else "Escolha o AURA como sua tela inicial",
-                color = AuraMuted,
-                fontSize = 10.sp,
-                modifier = Modifier.align(Alignment.CenterHorizontally).clickable { onSetDefault() }.padding(5.dp)
-            )
         }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (isDefault) "AURA é sua tela inicial" else "Toque aqui para definir o AURA como principal",
+            color = AuraMuted,
+            fontSize = 10.sp,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+                .clickable { onSetDefault() }
+                .padding(4.dp)
+        )
     }
 }
 
@@ -840,47 +1053,102 @@ private fun SettingsScreen(
 ) {
     val accent = AccentOptions[accentIndex]
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+        modifier = Modifier.fillMaxSize()
+            .background(Brush.verticalGradient(listOf(Color(0xFF15243A), AuraBlack)))
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 21.dp, vertical = 16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("‹", color = AuraWhite, fontSize = 34.sp,
-                modifier = Modifier.clickable { onBack() }.padding(end = 12.dp))
-            Column {
-                Text("Personalização", color = AuraWhite, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
-                Text("Configure sua experiência", color = AuraMuted, fontSize = 12.sp)
+            Box(
+                modifier = Modifier.size(40.dp).clip(CircleShape).background(AuraPanel)
+                    .clickable { onBack() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("‹", color = AuraWhite, fontSize = 28.sp)
+            }
+            Spacer(Modifier.width(13.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Seu AURA", color = AuraWhite, fontSize = 23.sp, fontWeight = FontWeight.SemiBold)
+                Text("Personalize cada detalhe", color = AuraMuted, fontSize = 11.sp)
+            }
+            Text("SETTINGS", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+        }
+
+        Spacer(Modifier.height(22.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF263C58))
+        ) {
+            Row(
+                modifier = Modifier.padding(17.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("AURA LAUNCHER", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.7.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        if (isDefault) "Seu espaço está ativo." else "Seu espaço está quase pronto.",
+                        color = AuraWhite,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        if (isDefault) "O AURA está cuidando da sua tela inicial." else "Escolha o AURA como tela inicial do Android.",
+                        color = Color(0xFFC0CBD9),
+                        fontSize = 10.sp
+                    )
+                }
+                Box(
+                    modifier = Modifier.size(48.dp).clip(CircleShape)
+                        .background(if (isDefault) Color(0xFF9BE4C0).copy(alpha = 0.15f) else accent.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(if (isDefault) "✓" else "✦", color = if (isDefault) Color(0xFF9BE4C0) else accent, fontSize = 23.sp)
+                }
             }
         }
 
-        SettingsHeading("TELA INICIAL", accent)
+        SettingsHeading("HOME SCREEN", accent)
         SettingCard {
-            Text("Tamanho dos ícones", color = AuraWhite, fontWeight = FontWeight.Medium)
-            Text("${iconSize.toInt()} dp", color = AuraMuted, fontSize = 11.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Tamanho dos ícones", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text("Ajuste a presença dos aplicativos", color = AuraMuted, fontSize = 10.sp)
+                }
+                Text("${iconSize.toInt()} dp", color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
             Slider(value = iconSize, onValueChange = onIconSize, valueRange = 42f..72f)
             Divider(color = Color.White.copy(alpha = 0.08f))
-            Text("Ícones por linha", color = AuraWhite, fontWeight = FontWeight.Medium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Colunas da biblioteca", color = AuraWhite, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 (3..6).forEach { count ->
                     ChoiceChip(count.toString(), columns == count, accent) { onColumns(count) }
                 }
             }
             Divider(color = Color.White.copy(alpha = 0.08f))
-            SettingSwitch("Mostrar nomes dos aplicativos", "Exibe o nome abaixo dos ícones", labels, onLabels)
+            SettingSwitch("Nome dos aplicativos", "Mostrar o nome abaixo dos ícones", labels, onLabels)
         }
 
-        SettingsHeading("APARÊNCIA", accent)
+        SettingsHeading("VISUAL IDENTITY", accent)
         SettingCard {
-            Text("Estilo do fundo", color = AuraWhite, fontWeight = FontWeight.Medium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ChoiceChip("Midnight", themeMode == 0, accent) { onTheme(0) }
-                ChoiceChip("AMOLED", themeMode == 1, accent) { onTheme(1) }
+            Text("Tema", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                ThemePreview("Midnight", themeMode == 0, Color(0xFF17243A), accent) { onTheme(0) }
+                ThemePreview("AMOLED", themeMode == 1, Color(0xFF050505), accent) { onTheme(1) }
             }
             Divider(color = Color.White.copy(alpha = 0.08f))
-            Text("Cor de destaque", color = AuraWhite, fontWeight = FontWeight.Medium)
-            Row(horizontalArrangement = Arrangement.spacedBy(13.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Cor de destaque", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 AccentOptions.forEachIndexed { index, color ->
                     Box(
-                        modifier = Modifier.size(34.dp).clip(CircleShape).background(color).clickable { onAccent(index) },
+                        modifier = Modifier.size(36.dp).clip(CircleShape)
+                            .background(color)
+                            .clickable { onAccent(index) },
                         contentAlignment = Alignment.Center
                     ) {
                         if (accentIndex == index) Text("✓", color = AuraBlack, fontWeight = FontWeight.Bold)
@@ -888,59 +1156,81 @@ private fun SettingsScreen(
                 }
             }
             Divider(color = Color.White.copy(alpha = 0.08f))
-            Text("Organização da gaveta", color = AuraWhite, fontWeight = FontWeight.Medium)
+            Text("Ordem da biblioteca", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ChoiceChip("A–Z", sortMode == 0, accent) { onSort(0) }
-                ChoiceChip("Recentes", sortMode == 1, accent) { onSort(1) }
+                ChoiceChip("Nome A–Z", sortMode == 0, accent) { onSort(0) }
+                ChoiceChip("Usados recentemente", sortMode == 1, accent) { onSort(1) }
             }
             Divider(color = Color.White.copy(alpha = 0.08f))
-            SettingSwitch("Animação de recentes", "Suaviza a entrada e a saída dos aplicativos recentes", animations, onAnimations)
+            SettingSwitch("Movimento suave", "Animação da seção de aplicativos recentes", animations, onAnimations)
         }
 
-        SettingsHeading("ORGANIZAÇÃO", accent)
+        SettingsHeading("ORGANIZATION", accent)
         SettingCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Pastas", color = AuraWhite, fontWeight = FontWeight.Medium)
-                    Text("${folders.size} pastas criadas", color = AuraMuted, fontSize = 11.sp)
+                    Text("Pastas", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text("${folders.size} coleções no seu espaço", color = AuraMuted, fontSize = 10.sp)
                 }
-                TextButton(onClick = onCreateFolder) { Text("Criar pasta", color = accent) }
+                TextButton(onClick = onCreateFolder) { Text("+ Criar", color = accent, fontWeight = FontWeight.Bold) }
             }
-            if (folders.isNotEmpty()) {
-                folders.forEach { folder ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(folder.name, color = AuraWhite, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { onRemoveFolder(folder) }) {
-                            Text("Remover", color = Color(0xFFFF9B9B))
-                        }
+            folders.forEach { folder ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("▦", color = accent, fontSize = 18.sp)
+                    Spacer(Modifier.width(9.dp))
+                    Text(folder.name, color = AuraWhite, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { onRemoveFolder(folder) }) {
+                        Text("Remover", color = Color(0xFFFFA3A3), fontSize = 10.sp)
                     }
                 }
             }
             Divider(color = Color.White.copy(alpha = 0.08f))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Aplicativos ocultos", color = AuraWhite, fontWeight = FontWeight.Medium)
-                    Text("$hiddenCount ocultos da gaveta", color = AuraMuted, fontSize = 11.sp)
+                    Text("Aplicativos ocultos", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text("$hiddenCount aplicativos fora da biblioteca principal", color = AuraMuted, fontSize = 10.sp)
                 }
                 TextButton(onClick = onOpenHidden) { Text("Gerenciar", color = accent) }
             }
         }
 
-        SettingsHeading("SISTEMA", accent)
-        SettingCard {
-            Text(
-                if (isDefault) "AURA é seu launcher padrão" else "AURA ainda não é o launcher padrão",
-                color = AuraWhite,
-                fontWeight = FontWeight.Medium
-            )
-            Text("O Android exibirá a confirmação oficial para definir a tela inicial.", color = AuraMuted, fontSize = 11.sp)
-            Button(
-                onClick = onSetDefault,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = AuraBlack),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Text("Definir AURA como principal", fontWeight = FontWeight.Bold)
+        SettingsHeading("ANDROID SYSTEM", accent)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF17243A))
+        ) {
+            Column(modifier = Modifier.padding(17.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Tela inicial padrão", color = AuraWhite, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            if (isDefault) "AURA está selecionado no Android" else "O Android ainda usa outro aplicativo",
+                            color = if (isDefault) Color(0xFF9BE4C0) else AuraMuted,
+                            fontSize = 10.sp
+                        )
+                    }
+                    Text(if (isDefault) "✓" else "○", color = if (isDefault) Color(0xFF9BE4C0) else accent, fontSize = 23.sp)
+                }
+                Spacer(Modifier.height(13.dp))
+                Button(
+                    onClick = onSetDefault,
+                    modifier = Modifier.fillMaxWidth().height(49.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = AuraBlack),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(
+                        if (isDefault) "AURA já é o principal" else "Definir AURA como principal",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    "A confirmação é feita pelo próprio Android. Em alguns aparelhos, a seleção fica em Configurações > Aplicativos padrão > App de início.",
+                    color = AuraMuted,
+                    fontSize = 10.sp,
+                    lineHeight = 15.sp
+                )
             }
         }
 
@@ -951,12 +1241,46 @@ private fun SettingsScreen(
             colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = AuraBlack),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Text("Salvar configurações", fontWeight = FontWeight.Bold)
+            Text("Salvar personalização", fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(20.dp))
-        Text("AURA Launcher · Personalização salva apenas neste dispositivo",
-            color = AuraMuted.copy(alpha = 0.65f), fontSize = 10.sp,
-            modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text(
+            "AURA Launcher  ·  Preferências salvas neste dispositivo",
+            color = AuraMuted.copy(alpha = 0.65f),
+            fontSize = 9.sp,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+    }
+}
+
+@Composable
+private fun ThemePreview(
+    title: String,
+    selected: Boolean,
+    background: Color,
+    accent: Color,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.weight(1f).clip(RoundedCornerShape(15.dp))
+            .background(Color(0xFF222C3C)).clickable { onClick() }.padding(8.dp)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(10.dp))
+                .background(background),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                repeat(3) {
+                    Box(Modifier.size(13.dp).clip(CircleShape).background(accent.copy(alpha = 0.75f)))
+                }
+            }
+        }
+        Spacer(Modifier.height(7.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, color = AuraWhite, fontSize = 11.sp, modifier = Modifier.weight(1f))
+            if (selected) Text("✓", color = accent, fontWeight = FontWeight.Bold)
+        }
     }
 }
 
