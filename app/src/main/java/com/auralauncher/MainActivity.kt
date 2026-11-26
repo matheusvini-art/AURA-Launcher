@@ -100,7 +100,6 @@ import android.widget.Toast
 import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import java.text.SimpleDateFormat
 import java.util.Date
