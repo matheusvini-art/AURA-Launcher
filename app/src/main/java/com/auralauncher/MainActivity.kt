@@ -4,6 +4,7 @@ import android.app.role.RoleManager
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.IntentFilter
 import android.provider.Settings.Secure
@@ -563,7 +564,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun isNotificationAccessEnabled(): Boolean =
-        Secure.getString(contentResolver, "enabled_notification_listeners")?.contains(packageName) == true
+        Secure.getString(contentResolver, "enabled_notification_listeners")
+            ?.split(':')
+            ?.mapNotNull { ComponentName.unflattenFromString(it) }
+            ?.any { it.packageName == packageName } == true
 
     private fun openNotificationAccessSettings() {
         runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
