@@ -33,6 +33,7 @@
 - Cache dos mapeamentos XML de icon packs para evitar reler o mesmo appfilter.xml para cada aplicativo.
 - Gestos de arraste de atalhos/widgets reiniciam ao alternar o modo de edição; a lista de provedores de widgets tem altura limitada e rolagem.
 - Serviço de notificações não exportado, protegido por binding do sistema, com filtros padrão para alertas/conversas; contagens antigas são removidas quando o acesso é revogado.
+- Consulta e atualização do inventário de aplicativos e ícones movida para uma coroutine em `Dispatchers.IO`; a lista anterior permanece na tela durante a atualização.
 
 ## Limitações conhecidas
 
