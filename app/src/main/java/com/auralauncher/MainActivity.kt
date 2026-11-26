@@ -378,7 +378,17 @@ class MainActivity : ComponentActivity() {
                         )
                     },
                     onUninstall = { packageName ->
-                        startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName")))
+                        runCatching {
+                            startActivity(
+                                Intent(Intent.ACTION_UNINSTALL_PACKAGE, Uri.parse("package:$packageName"))
+                            )
+                        }.onFailure {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Não foi possível abrir a confirmação de desinstalação do Android.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                     },
                     onSaveFavorites = { value ->
                         prefs.edit().putStringSet("favorites", value.toSet()).apply()
