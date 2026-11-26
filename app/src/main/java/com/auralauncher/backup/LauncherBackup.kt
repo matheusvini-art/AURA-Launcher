@@ -23,7 +23,8 @@ data class LauncherBackup(
     val iconPackPackage: String? = null,
     val swipeLeftGestureEnabled: Boolean = true,
     val doubleTapSettingsEnabled: Boolean = true,
-    val widgetPlacementsJson: String = "[]"
+    val widgetPlacementsJson: String = "[]",
+    val homeShortcutsJson: String = "[]"
 )
 
 object LauncherBackupCodec {
@@ -49,6 +50,7 @@ object LauncherBackupCodec {
             setProperty("swipeLeftGestureEnabled", backup.swipeLeftGestureEnabled.toString())
             setProperty("doubleTapSettingsEnabled", backup.doubleTapSettingsEnabled.toString())
             setProperty("widgetPlacementsJson", backup.widgetPlacementsJson)
+            setProperty("homeShortcutsJson", backup.homeShortcutsJson)
         }
         return StringWriter().also { properties.store(it, "AURA Launcher backup") }.toString()
     }
@@ -84,7 +86,8 @@ object LauncherBackupCodec {
             iconPackPackage = properties.getProperty("iconPackPackage", "").ifBlank { null },
             swipeLeftGestureEnabled = properties.getProperty("swipeLeftGestureEnabled", "true").toBooleanStrict(),
             doubleTapSettingsEnabled = properties.getProperty("doubleTapSettingsEnabled", "true").toBooleanStrict(),
-            widgetPlacementsJson = properties.getProperty("widgetPlacementsJson", "[]")
+            widgetPlacementsJson = properties.getProperty("widgetPlacementsJson", "[]"),
+            homeShortcutsJson = properties.getProperty("homeShortcutsJson", "[]")
         )
         validate(backup)
         return backup
@@ -98,6 +101,7 @@ object LauncherBackupCodec {
         require(backup.sortMode in 0..4) { "Sort mode is invalid." }
         require(backup.foldersJson.length <= 128_000) { "Folder data is too large." }
         require(backup.widgetPlacementsJson.length <= 128_000) { "Widget layout data is too large." }
+        require(backup.homeShortcutsJson.length <= 128_000) { "Home shortcut data is too large." }
         require((backup.iconPackPackage?.length ?: 0) <= 255 && backup.iconPackPackage?.contains('\n') != true) {
             "Icon pack package name is invalid."
         }
