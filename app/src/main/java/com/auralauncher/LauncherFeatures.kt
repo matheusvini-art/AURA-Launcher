@@ -148,7 +148,8 @@ fun WidgetWorkspace(
     onRemove: (Int) -> Unit
 ) {
     val maxBottom = placements.maxOfOrNull { it.yDp } ?: 0f
-    val workspaceHeight = (maxBottom + 190f).coerceAtLeast(190f).dp
+    val workspaceHeight = (maxBottom + 420f).coerceAtLeast(420f).dp
+    val canvasMaxY = (workspaceHeight - 178.dp).value.coerceAtLeast(0f)
     val density = LocalDensity.current
 
     BoxWithConstraints(
@@ -189,7 +190,7 @@ fun WidgetWorkspace(
                                     change.consume()
                                     val maxX = (availableWidth - 270.dp).value.coerceAtLeast(0f)
                                     x = (x + amount.x / density.density).coerceIn(0f, maxX)
-                                    y = (y + amount.y / density.density).coerceIn(0f, 2400f)
+                                    y = (y + amount.y / density.density).coerceIn(0f, canvasMaxY)
                                 }
                             }
                             .padding(horizontal = 10.dp, vertical = 6.dp),
