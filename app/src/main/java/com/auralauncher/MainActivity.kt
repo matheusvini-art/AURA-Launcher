@@ -17,6 +17,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.net.Uri
@@ -25,6 +26,7 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -92,14 +94,24 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.widget.Toast
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.InputStream
 import androidx.compose.foundation.gestures.detectTapGestures
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -124,6 +136,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var notificationAccessState: androidx.compose.runtime.MutableState<Boolean>
     private lateinit var widgetHostController: AuraWidgetHostController
     private lateinit var widgetPlacementsState: androidx.compose.runtime.MutableState<List<WidgetPlacement>>
+    private lateinit var wallpaperState: androidx.compose.runtime.MutableState<String?>
+    private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var pendingWidgetId: Int? = null
 
     private val notificationRefreshReceiver = object : BroadcastReceiver() {
@@ -131,6 +145,29 @@ class MainActivity : ComponentActivity() {
             if (::appState.isInitialized) appState.value = loadLaunchableApps()
         }
     }
+
+    private val wallpaperPickerLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                activityScope.launch {
+                    runCatching { withContext(Dispatchers.IO) { copyWallpaperToAppStorage(uri) } }
+                        .onSuccess { file ->
+                            wallpaperState.value = file.absolutePath
+                            getSharedPreferences("aura_preferences", MODE_PRIVATE).edit()
+                                .putString("wallpaper_path", file.absolutePath)
+                                .apply()
+                            Toast.makeText(this@MainActivity, "Papel de parede aplicado.", Toast.LENGTH_SHORT).show()
+                        }
+                        .onFailure { error ->
+                            Toast.makeText(
+                                this@MainActivity,
+                                error.message ?: "Não foi possível usar essa imagem.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                }
+            }
+        }
 
     private val widgetBindLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -192,7 +229,7 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 runCatching {
-                    val raw = contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                    val raw = contentResolver.openInputStream(uri)?.use { it.readUtf8Limited(512_000) }
                         ?: error("Não foi possível ler o arquivo.")
                     val snapshot = LauncherBackupCodec.decode(raw)
                     getSharedPreferences("aura_preferences", MODE_PRIVATE).edit()
@@ -250,6 +287,8 @@ class MainActivity : ComponentActivity() {
         appState = mutableStateOf(loadLaunchableApps())
         defaultState = mutableStateOf(isDefaultHome())
         notificationAccessState = mutableStateOf(isNotificationAccessEnabled())
+        val savedWallpaper = File(filesDir, WALLPAPER_FILE_NAME)
+        wallpaperState = mutableStateOf(savedWallpaper.takeIf { it.isFile }?.absolutePath)
 
         setContent {
             AuraTheme {
@@ -261,6 +300,13 @@ class MainActivity : ComponentActivity() {
                     initialRecents = readPackageList(prefs.getString("recent_order", "")),
                     initialFolders = decodeFolders(prefs.getString("folders", "[]")),
                     initialHomeShortcuts = HomeShortcutCodec.decode(prefs.getString("home_shortcuts", "[]")),
+                    initialWallpaperPath = wallpaperState.value,
+                    onPickWallpaper = { wallpaperPickerLauncher.launch(arrayOf("image/*")) },
+                    onRemoveWallpaper = {
+                        File(filesDir, WALLPAPER_FILE_NAME).delete()
+                        prefs.edit().remove("wallpaper_path").apply()
+                        wallpaperState.value = null
+                    },
                     iconSize = prefs.getFloat("icon_size", 54f),
                     columns = prefs.getInt("columns", 4),
                     labels = prefs.getBoolean("labels", true),
@@ -356,6 +402,64 @@ class MainActivity : ComponentActivity() {
         if (::appState.isInitialized) appState.value = loadLaunchableApps()
         if (::defaultState.isInitialized) defaultState.value = isDefaultHome()
         if (::notificationAccessState.isInitialized) notificationAccessState.value = isNotificationAccessEnabled()
+    }
+
+    override fun onDestroy() {
+        activityScope.cancel()
+        super.onDestroy()
+    }
+
+    private fun copyWallpaperToAppStorage(uri: Uri): File {
+        val temporary = File(filesDir, "$WALLPAPER_FILE_NAME.tmp")
+        try {
+            val input = contentResolver.openInputStream(uri)
+                ?: error("Não foi possível abrir a imagem selecionada.")
+            var copiedBytes = 0L
+            input.use { source ->
+                temporary.outputStream().buffered().use { target ->
+                    val buffer = ByteArray(16 * 1024)
+                    while (true) {
+                        val count = source.read(buffer)
+                        if (count < 0) break
+                        copiedBytes += count
+                        require(copiedBytes <= MAX_WALLPAPER_BYTES) {
+                            "A imagem é muito grande. Escolha uma foto de até 20 MB."
+                        }
+                        target.write(buffer, 0, count)
+                    }
+                }
+            }
+            require(copiedBytes > 0L) { "O arquivo selecionado está vazio." }
+
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(temporary.absolutePath, bounds)
+            require(bounds.outWidth in 1..20_000 && bounds.outHeight in 1..20_000) {
+                "O arquivo selecionado não é uma imagem compatível."
+            }
+
+            var sampleSize = 1
+            while (bounds.outWidth / sampleSize > 1920 || bounds.outHeight / sampleSize > 1920) {
+                sampleSize *= 2
+            }
+            val verification = BitmapFactory.decodeFile(
+                temporary.absolutePath,
+                BitmapFactory.Options().apply { inSampleSize = sampleSize }
+            ) ?: error("Não foi possível decodificar essa imagem.")
+            verification.recycle()
+
+            val destination = File(filesDir, WALLPAPER_FILE_NAME)
+            if (destination.exists() && !destination.delete()) {
+                error("Não foi possível substituir o papel de parede atual.")
+            }
+            if (!temporary.renameTo(destination)) {
+                temporary.copyTo(destination, overwrite = true)
+                temporary.delete()
+            }
+            return destination
+        } catch (error: Exception) {
+            temporary.delete()
+            throw error
+        }
     }
 
     private fun beginWidgetSetup(provider: AppWidgetProviderInfo) {
@@ -619,7 +723,10 @@ private fun AuraLauncher(
     onSaveHidden: (Set<String>) -> Unit,
     onSaveFolders: (List<AppFolder>) -> Unit,
     onSaveHomeShortcuts: (List<HomeShortcutPlacement>) -> Unit,
-    onSaveSettings: (Float, Int, Boolean, Int, Int, Int, Boolean) -> Unit
+    onSaveSettings: (Float, Int, Boolean, Int, Int, Int, Boolean) -> Unit,
+    initialWallpaperPath: String?,
+    onPickWallpaper: () -> Unit,
+    onRemoveWallpaper: () -> Unit
 ) {
     var favorites by remember { mutableStateOf(initialFavorites) }
     var hidden by remember { mutableStateOf(initialHidden) }
@@ -648,13 +755,25 @@ private fun AuraLauncher(
     var swipeLeftGestureEnabled by remember { mutableStateOf(swipeLeftEnabled) }
     var doubleTapGestureEnabled by remember { mutableStateOf(doubleTapSettingsEnabled) }
     var editHomeMode by remember { mutableStateOf(false) }
+    var wallpaperPath by remember { mutableStateOf(initialWallpaperPath) }
 
     LaunchedEffect(initialWidgetPlacements) { widgetPlacements = initialWidgetPlacements }
     LaunchedEffect(initialHomeShortcuts) { homeShortcuts = initialHomeShortcuts }
+    LaunchedEffect(initialWallpaperPath) { wallpaperPath = initialWallpaperPath }
     LaunchedEffect(initialIconPack) { selectedIconPack = initialIconPack }
     LaunchedEffect(swipeLeftEnabled, doubleTapSettingsEnabled) {
         swipeLeftGestureEnabled = swipeLeftEnabled
         doubleTapGestureEnabled = doubleTapSettingsEnabled
+    }
+
+    BackHandler(enabled = showSettings || showDrawer) {
+        if (showSettings) {
+            showSettings = false
+        } else {
+            showDrawer = false
+            search = ""
+            drawerTab = 0
+        }
     }
 
     LaunchedEffect(isDefaultLauncher) { isDefault = isDefaultLauncher }
@@ -743,6 +862,12 @@ private fun AuraLauncher(
                     isDefault = isDefault,
                     hiddenCount = hidden.size,
                     folders = folders,
+                    wallpaperPath = wallpaperPath,
+                    onPickWallpaper = onPickWallpaper,
+                    onRemoveWallpaper = {
+                        wallpaperPath = null
+                        onRemoveWallpaper()
+                    },
                     widgetCount = widgetPlacements.size,
                     installedIconPacks = installedIconPacks,
                     selectedIconPack = selectedIconPack,
@@ -802,6 +927,7 @@ private fun AuraLauncher(
                     favorites = favoriteApps,
                     recentApps = recentApps,
                     folders = folders,
+                    wallpaperPath = wallpaperPath,
                     homeShortcutItems = apps.filterNot { it.packageName in hidden }.map {
                         HomeShortcutItem(it.packageName, it.title, it.icon)
                     },
@@ -933,7 +1059,8 @@ private fun HomeScreen(
     onMoveHomeShortcut: (HomeShortcutPlacement) -> Unit,
     onRemoveHomeShortcut: (String) -> Unit,
     onMoveWidget: (WidgetPlacement) -> Unit,
-    onRemoveWidget: (Int) -> Unit
+    onRemoveWidget: (Int) -> Unit,
+    wallpaperPath: String?
 ) {
     val hour = time.substringBefore(":").toIntOrNull() ?: 12
     val greeting = when (hour) {
@@ -942,16 +1069,34 @@ private fun HomeScreen(
         else -> "Boa noite"
     }
 
+    val wallpaperBitmap = rememberWallpaperBitmap(wallpaperPath)
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(Color(0xFF173A58), Color(0xFF0A1424), Color(0xFF050812)),
-                    radius = 1050f
+        modifier = Modifier.fillMaxSize().background(Color(0xFF050812))
+    ) {
+        if (wallpaperBitmap != null) {
+            Image(
+                bitmap = wallpaperBitmap,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize().background(
+                    Brush.radialGradient(
+                        colors = listOf(Color(0xFF173A58), Color(0xFF0A1424), Color(0xFF050812)),
+                        radius = 1050f
+                    )
                 )
             )
-    ) {
+        }
+        Box(
+            modifier = Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    colors = listOf(Color(0x66050812), Color(0x99050812), Color(0xE6050812))
+                )
+            )
+        )
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -1514,7 +1659,7 @@ private fun AppIconArtwork(
     sizeDp: Float,
     shape: RoundedCornerShape = RoundedCornerShape(15.dp)
 ) {
-    val bitmap = remember(app.packageName) { app.icon.toImageBitmap() }
+    val bitmap = remember(app.packageName, app.icon) { app.icon.toImageBitmap() }
     Box(modifier = Modifier.size(sizeDp.dp)) {
         Image(
             bitmap = bitmap,
@@ -1794,6 +1939,9 @@ private fun SettingsScreen(
     installedIconPacks: List<InstalledIconPack>,
     selectedIconPack: String?,
     notificationAccessEnabled: Boolean,
+    wallpaperPath: String?,
+    onPickWallpaper: () -> Unit,
+    onRemoveWallpaper: () -> Unit,
     swipeLeftEnabled: Boolean,
     doubleTapSettingsEnabled: Boolean,
     onBack: () -> Unit,
@@ -1818,6 +1966,7 @@ private fun SettingsScreen(
     onSave: () -> Unit
 ) {
     val accent = AccentOptions[accentIndex]
+    val wallpaperPreview = rememberWallpaperBitmap(wallpaperPath)
     Column(
         modifier = Modifier.fillMaxSize()
             .background(Brush.verticalGradient(listOf(Color(0xFF142C4C), AuraBlack)))
@@ -1929,6 +2078,44 @@ private fun SettingsScreen(
             }
             Divider(color = Color.White.copy(alpha = 0.08f))
             SettingSwitch("Movimento suave", "Animação da seção de aplicativos recentes", animations, onAnimations)
+        }
+
+        SettingsHeading("PAPEL DE PAREDE", accent)
+        SettingCard {
+            Text("Sua foto na tela inicial", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            Text(
+                "Escolha qualquer imagem do dispositivo. O AURA guarda uma cópia privada no próprio aparelho.",
+                color = AuraMuted,
+                fontSize = 10.sp,
+                lineHeight = 15.sp
+            )
+            if (wallpaperPreview != null) {
+                Image(
+                    bitmap = wallpaperPreview,
+                    contentDescription = "Prévia do papel de parede",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxWidth().height(118.dp).clip(RoundedCornerShape(15.dp))
+                )
+            }
+            Button(
+                onClick = onPickWallpaper,
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = AuraBlack),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text(if (wallpaperPath == null) "Escolher foto" else "Trocar papel de parede", fontWeight = FontWeight.Bold)
+            }
+            if (wallpaperPath != null) {
+                TextButton(onClick = onRemoveWallpaper, modifier = Modifier.fillMaxWidth()) {
+                    Text("Restaurar fundo original do AURA", color = accent, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Text(
+                "A imagem não é enviada para a internet e não é incluída no arquivo de backup.",
+                color = AuraMuted.copy(alpha = 0.75f),
+                fontSize = 9.sp,
+                lineHeight = 13.sp
+            )
         }
 
         SettingsHeading("ORGANIZAÇÃO", accent)
@@ -2230,7 +2417,7 @@ private fun AppIcon(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null
 ) {
-    val bitmap = remember(app.packageName) { app.icon.toImageBitmap() }
+    val bitmap = remember(app.packageName, app.icon) { app.icon.toImageBitmap() }
     Column(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
@@ -2402,6 +2589,62 @@ private fun FolderContentsDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Fechar") } }
     )
+}
+
+
+private const val WALLPAPER_FILE_NAME = "aura-wallpaper.img"
+private const val MAX_WALLPAPER_BYTES = 20L * 1024L * 1024L
+
+@Composable
+private fun rememberWallpaperBitmap(path: String?): ImageBitmap? {
+    var image by remember(path) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(path) {
+        image = null
+        if (!path.isNullOrBlank()) {
+            image = withContext(Dispatchers.IO) {
+                decodeWallpaperBitmap(path)?.asImageBitmap()
+            }
+        }
+    }
+    return image
+}
+
+private fun decodeWallpaperBitmap(path: String): Bitmap? {
+    return try {
+        val file = File(path)
+        if (!file.isFile) return null
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+        var sampleSize = 1
+        while (bounds.outWidth / sampleSize > 1920 || bounds.outHeight / sampleSize > 1920) {
+            sampleSize *= 2
+        }
+        BitmapFactory.decodeFile(
+            file.absolutePath,
+            BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+        )
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun InputStream.readUtf8Limited(maxBytes: Int): String {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(8 * 1024)
+    while (true) {
+        val count = read(buffer)
+        if (count < 0) break
+        require(output.size() + count <= maxBytes) {
+            "O backup excede o limite de tamanho permitido (512 KB)."
+        }
+        output.write(buffer, 0, count)
+    }
+    return String(output.toByteArray(), Charsets.UTF_8)
 }
 
 private fun Drawable.toImageBitmap(): ImageBitmap {
