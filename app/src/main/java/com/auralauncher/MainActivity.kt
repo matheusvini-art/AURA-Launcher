@@ -121,6 +121,7 @@ private data class AppFolder(
 class MainActivity : ComponentActivity() {
     private lateinit var appState: androidx.compose.runtime.MutableState<List<LaunchableApp>>
     private lateinit var defaultState: androidx.compose.runtime.MutableState<Boolean>
+    private lateinit var notificationAccessState: androidx.compose.runtime.MutableState<Boolean>
     private lateinit var widgetHostController: AuraWidgetHostController
     private lateinit var widgetPlacementsState: androidx.compose.runtime.MutableState<List<WidgetPlacement>>
     private var pendingWidgetId: Int? = null
@@ -234,6 +235,7 @@ class MainActivity : ComponentActivity() {
         widgetPlacementsState = mutableStateOf(WidgetPlacementCodec.decode(prefs.getString("widget_placements", "[]")))
         appState = mutableStateOf(loadLaunchableApps())
         defaultState = mutableStateOf(isDefaultHome())
+        notificationAccessState = mutableStateOf(isNotificationAccessEnabled())
 
         setContent {
             AuraTheme {
@@ -256,7 +258,7 @@ class MainActivity : ComponentActivity() {
                     widgetProviders = widgetHostController.manager.installedProviders.orEmpty(),
                     installedIconPacks = IconPackManager.installedPacks(this),
                     initialIconPack = prefs.getString("icon_pack", null),
-                    notificationAccessEnabled = isNotificationAccessEnabled(),
+                    notificationAccessEnabled = notificationAccessState.value,
                     swipeLeftEnabled = prefs.getBoolean("gesture_swipe_left", true),
                     doubleTapSettingsEnabled = prefs.getBoolean("gesture_double_tap", true),
                     onSetDefault = ::requestDefaultLauncher,
@@ -335,6 +337,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         if (::appState.isInitialized) appState.value = loadLaunchableApps()
         if (::defaultState.isInitialized) defaultState.value = isDefaultHome()
+        if (::notificationAccessState.isInitialized) notificationAccessState.value = isNotificationAccessEnabled()
     }
 
     private fun beginWidgetSetup(provider: AppWidgetProviderInfo) {
