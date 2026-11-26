@@ -19,11 +19,14 @@ data class LauncherBackup(
     val accentIndex: Int = 0,
     val themeMode: Int = 0,
     val sortMode: Int = 0,
-    val animationsEnabled: Boolean = true
+    val animationsEnabled: Boolean = true,
+    val iconPackPackage: String? = null,
+    val swipeLeftGestureEnabled: Boolean = true,
+    val doubleTapSettingsEnabled: Boolean = true
 )
 
 object LauncherBackupCodec {
-    private const val SCHEMA_VERSION = 1
+    private const val SCHEMA_VERSION = 2
     private const val MAX_TEXT_LENGTH = 512_000
 
     fun encode(backup: LauncherBackup): String {
@@ -41,6 +44,9 @@ object LauncherBackupCodec {
             setProperty("themeMode", backup.themeMode.toString())
             setProperty("sortMode", backup.sortMode.toString())
             setProperty("animationsEnabled", backup.animationsEnabled.toString())
+            setProperty("iconPackPackage", backup.iconPackPackage.orEmpty())
+            setProperty("swipeLeftGestureEnabled", backup.swipeLeftGestureEnabled.toString())
+            setProperty("doubleTapSettingsEnabled", backup.doubleTapSettingsEnabled.toString())
         }
         return StringWriter().also { properties.store(it, "AURA Launcher backup") }.toString()
     }
@@ -48,7 +54,8 @@ object LauncherBackupCodec {
     fun decode(raw: String): LauncherBackup {
         require(raw.length <= MAX_TEXT_LENGTH) { "Backup file is too large." }
         val properties = Properties().apply { load(StringReader(raw)) }
-        require(properties.getProperty("schema")?.toIntOrNull() == SCHEMA_VERSION) {
+        val schema = properties.getProperty("schema")?.toIntOrNull()
+        require(schema in 1..SCHEMA_VERSION) {
             "Unsupported or missing AURA backup version."
         }
         fun list(key: String) = properties.getProperty(key, "")
@@ -71,7 +78,10 @@ object LauncherBackupCodec {
                 ?: error("Invalid theme mode."),
             sortMode = properties.getProperty("sortMode", "0").toIntOrNull()
                 ?: error("Invalid sort mode."),
-            animationsEnabled = properties.getProperty("animationsEnabled", "true").toBooleanStrict()
+            animationsEnabled = properties.getProperty("animationsEnabled", "true").toBooleanStrict(),
+            iconPackPackage = properties.getProperty("iconPackPackage", "").ifBlank { null },
+            swipeLeftGestureEnabled = properties.getProperty("swipeLeftGestureEnabled", "true").toBooleanStrict(),
+            doubleTapSettingsEnabled = properties.getProperty("doubleTapSettingsEnabled", "true").toBooleanStrict()
         )
         validate(backup)
         return backup
@@ -84,6 +94,9 @@ object LauncherBackupCodec {
         require(backup.themeMode in 0..4) { "Theme mode is invalid." }
         require(backup.sortMode in 0..4) { "Sort mode is invalid." }
         require(backup.foldersJson.length <= 128_000) { "Folder data is too large." }
+        require((backup.iconPackPackage?.length ?: 0) <= 255 && backup.iconPackPackage?.contains('\n') != true) {
+            "Icon pack package name is invalid."
+        }
         require((backup.favorites + backup.hidden + backup.recentPackages).all {
             it.length <= 255 && !it.contains('\n') && !it.contains('\r')
         }) { "Package name is invalid." }
