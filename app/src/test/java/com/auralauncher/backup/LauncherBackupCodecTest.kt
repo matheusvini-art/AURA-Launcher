@@ -18,10 +18,22 @@ class LauncherBackupCodecTest {
             accentIndex = 3,
             themeMode = 1,
             sortMode = 1,
-            animationsEnabled = false
+            animationsEnabled = false,
+            iconPackPackage = "com.example.icons",
+            swipeLeftGestureEnabled = false,
+            doubleTapSettingsEnabled = false
         )
 
         assertEquals(original, LauncherBackupCodec.decode(LauncherBackupCodec.encode(original)))
+    }
+
+    @Test
+    fun readsLegacySchemaOneWithNewFeatureDefaults() {
+        val restored = LauncherBackupCodec.decode("schema=1\\nfavorites=com.example.mail\\n")
+        assertEquals(setOf("com.example.mail"), restored.favorites)
+        assertEquals(null, restored.iconPackPackage)
+        assertEquals(true, restored.swipeLeftGestureEnabled)
+        assertEquals(true, restored.doubleTapSettingsEnabled)
     }
 
     @Test
