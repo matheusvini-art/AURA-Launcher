@@ -100,6 +100,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.widget.Toast
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -150,21 +151,22 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 activityScope.launch {
-                    runCatching { withContext(Dispatchers.IO) { copyWallpaperToAppStorage(uri) } }
-                        .onSuccess { file ->
-                            wallpaperState.value = file.absolutePath
-                            getSharedPreferences("aura_preferences", MODE_PRIVATE).edit()
-                                .putString("wallpaper_path", file.absolutePath)
-                                .apply()
-                            Toast.makeText(this@MainActivity, "Papel de parede aplicado.", Toast.LENGTH_SHORT).show()
-                        }
-                        .onFailure { error ->
-                            Toast.makeText(
-                                this@MainActivity,
-                                error.message ?: "Não foi possível usar essa imagem.",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        }
+                    try {
+                        val file = withContext(Dispatchers.IO) { copyWallpaperToAppStorage(uri) }
+                        wallpaperState.value = file.absolutePath
+                        getSharedPreferences("aura_preferences", MODE_PRIVATE).edit()
+                            .putString("wallpaper_path", file.absolutePath)
+                            .apply()
+                        Toast.makeText(this@MainActivity, "Papel de parede aplicado.", Toast.LENGTH_SHORT).show()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            error.message ?: "Não foi possível usar essa imagem.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
             }
         }
@@ -448,14 +450,24 @@ class MainActivity : ComponentActivity() {
             verification.recycle()
 
             val destination = File(filesDir, WALLPAPER_FILE_NAME)
-            if (destination.exists() && !destination.delete()) {
-                error("Não foi possível substituir o papel de parede atual.")
+            val previous = File(filesDir, "$WALLPAPER_FILE_NAME.bak")
+            previous.delete()
+            val hadPrevious = destination.isFile
+            if (hadPrevious && !destination.renameTo(previous)) {
+                error("Não foi possível preparar a troca do papel de parede.")
             }
-            if (!temporary.renameTo(destination)) {
-                temporary.copyTo(destination, overwrite = true)
-                temporary.delete()
+            try {
+                if (!temporary.renameTo(destination)) {
+                    temporary.copyTo(destination, overwrite = true)
+                    temporary.delete()
+                }
+                previous.delete()
+                return destination
+            } catch (error: Exception) {
+                destination.delete()
+                if (hadPrevious) previous.renameTo(destination)
+                throw error
             }
-            return destination
         } catch (error: Exception) {
             temporary.delete()
             throw error
