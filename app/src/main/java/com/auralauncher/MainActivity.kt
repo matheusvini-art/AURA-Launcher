@@ -1006,6 +1006,7 @@ private fun AuraLauncher(
                     iconSize = currentIconSize,
                     labels = showLabels,
                     accent = accentColor,
+                    darkMode = themeMode == 1,
                     isDefault = isDefault,
                     animations = motionEnabled,
                     onOpenDrawer = { showDrawer = true; drawerTab = 0 },
@@ -1112,6 +1113,7 @@ private fun HomeScreen(
     iconSize: Float,
     labels: Boolean,
     accent: Color,
+    darkMode: Boolean,
     isDefault: Boolean,
     animations: Boolean,
     onOpenDrawer: () -> Unit,
@@ -1142,13 +1144,13 @@ private fun HomeScreen(
     }
 
     val wallpaperBitmap = rememberWallpaperBitmap(wallpaperPath)
-    val pageBackground = Color(0xFFF0ECFA)
-    val ink = Color(0xFF302A43)
-    val muted = Color(0xFF817990)
-    val surface = Color(0xFFFFFFFF)
-    val softSurface = Color(0xFFF8F5FF)
-    val outline = Color(0xFFE6DFF2)
-    val brand = Color(0xFF7658D8)
+    val pageBackground = if (darkMode) Color(0xFF100B19) else Color(0xFFF0ECFA)
+    val ink = if (darkMode) Color(0xFFF6F0FF) else Color(0xFF302A43)
+    val muted = if (darkMode) Color(0xFFB7AFC8) else Color(0xFF817990)
+    val surface = if (darkMode) Color(0xFF21192E) else Color(0xFFFFFFFF)
+    val softSurface = if (darkMode) Color(0xFF2A2039) else Color(0xFFF8F5FF)
+    val outline = if (darkMode) Color(0xFF45385C) else Color(0xFFE6DFF2)
+    val brand = if (darkMode) Color(0xFFB29BFF) else Color(0xFF7658D8)
     Box(
         modifier = Modifier.fillMaxSize().background(pageBackground)
     ) {
@@ -1242,7 +1244,7 @@ private fun HomeScreen(
                             letterSpacing = 3.2.sp
                         )
                         Text(
-                            "PERSONAL INTERFACE  /  04",
+                            "SEU ESPAÇO DIGITAL",
                             color = muted,
                             fontSize = 8.sp,
                             letterSpacing = 1.35.sp
@@ -1263,7 +1265,7 @@ private fun HomeScreen(
                         )
                         Spacer(Modifier.width(7.dp))
                         Text(
-                            if (isDefault) "ONLINE" else "ATIVAR",
+                            if (isDefault) "ATIVO" else "DEFINIR",
                             color = if (isDefault) Color(0xFF287D5D) else Color(0xFF9B6B2F),
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold,
@@ -1410,6 +1412,7 @@ private fun HomeScreen(
                         title = "Aplicativos",
                         detail = "Abrir biblioteca",
                         accent = Color(0xFF8067D9),
+                        darkMode = darkMode,
                         modifier = Modifier.weight(1f),
                         onClick = onOpenDrawer
                     )
@@ -1418,6 +1421,7 @@ private fun HomeScreen(
                         title = "Favoritos",
                         detail = "${favorites.size} fixados",
                         accent = Color(0xFFE5AD55),
+                        darkMode = darkMode,
                         modifier = Modifier.weight(1f),
                         onClick = onOpenFavorites
                     )
@@ -1426,6 +1430,7 @@ private fun HomeScreen(
                         title = "Personalizar",
                         detail = "Seu visual",
                         accent = Color(0xFF55A98D),
+                        darkMode = darkMode,
                         modifier = Modifier.weight(1f),
                         onClick = onOpenSettings
                     )
@@ -1440,7 +1445,7 @@ private fun HomeScreen(
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = onToggleEditMode) {
-                            Text(if (editMode) "CONCLUIR" else "EDITAR", color = if (editMode) Color(0xFF9BE4C0) else accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text(if (editMode) "CONCLUIR" else "EDITAR", color = if (editMode) Color(0xFF32896C) else accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                         }
                         TextButton(onClick = onOpenLibraryForShortcut) {
                             Text("+ APP", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -1495,7 +1500,7 @@ private fun HomeScreen(
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = onToggleEditMode) {
-                            Text(if (editMode) "CONCLUIR" else "EDITAR", color = if (editMode) Color(0xFF9BE4C0) else accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text(if (editMode) "CONCLUIR" else "EDITAR", color = if (editMode) Color(0xFF32896C) else accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                         }
                         TextButton(onClick = onOpenWidgetPicker) {
                             Text("+ ADICIONAR", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -1705,7 +1710,7 @@ private fun HomeScreen(
             // Dock flutuante persistente.
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xEEFFFFFF)),
+                colors = CardDefaults.cardColors(containerColor = surface.copy(alpha = 0.94f)),
                 shape = RoundedCornerShape(25.dp)
             ) {
                 Row(
@@ -1713,14 +1718,14 @@ private fun HomeScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    DockAction("▦", "Apps", accent, onOpenDrawer)
-                    DockAction("✧", "Fixados", accent, onOpenFavorites)
-                    DockAction("◈", "Studio", accent, onOpenSettings)
+                    DockAction("▦", "Apps", accent, ink, onOpenDrawer)
+                    DockAction("✧", "Fixados", accent, ink, onOpenFavorites)
+                    DockAction("◈", "Studio", accent, ink, onOpenSettings)
                 }
             }
             Spacer(Modifier.height(5.dp))
             Text(
-                if (isDefault) "AURA  /  HOME SYSTEM ACTIVE" else "AURA  /  TOQUE PARA DEFINIR COMO INÍCIO",
+                if (isDefault) "AURA  ·  TELA INICIAL ATIVA" else "AURA  ·  DEFINIR COMO INÍCIO",
                 color = muted.copy(alpha = 0.62f),
                 fontSize = 7.sp,
                 letterSpacing = 1.1.sp,
@@ -1770,14 +1775,15 @@ private fun HomeCommandTile(
     title: String,
     detail: String,
     accent: Color,
+    darkMode: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(19.dp))
-            .background(Color(0xFFFFFFFF))
-            .border(1.dp, Color(0xFFE6DFF2), RoundedCornerShape(19.dp))
+            .background(if (darkMode) Color(0xFF21192E) else Color(0xFFFFFFFF))
+            .border(1.dp, if (darkMode) Color(0xFF45385C) else Color(0xFFE6DFF2), RoundedCornerShape(19.dp))
             .clickable { onClick() }
             .padding(horizontal = 10.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.Start
@@ -1790,8 +1796,8 @@ private fun HomeCommandTile(
             Text(symbol, color = accent, fontSize = 19.sp)
         }
         Spacer(Modifier.height(10.dp))
-        Text(title, color = Color(0xFF302A43), fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-        Text(detail, color = Color(0xFF817990), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(title, color = if (darkMode) Color(0xFFF6F0FF) else Color(0xFF302A43), fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(detail, color = if (darkMode) Color(0xFFB7AFC8) else Color(0xFF817990), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -2476,14 +2482,14 @@ private fun ChoiceChip(label: String, selected: Boolean, accent: Color, onClick:
 }
 
 @Composable
-private fun DockAction(symbol: String, title: String, accent: Color, onClick: () -> Unit) {
+private fun DockAction(symbol: String, title: String, accent: Color, labelColor: Color, onClick: () -> Unit) {
     Column(
         modifier = Modifier.clip(RoundedCornerShape(15.dp)).clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(symbol, color = accent, fontSize = 22.sp)
-        Text(title, color = Color(0xFF302A43), fontSize = 9.sp, fontWeight = FontWeight.Medium)
+        Text(title, color = labelColor, fontSize = 9.sp, fontWeight = FontWeight.Medium)
     }
 }
 
