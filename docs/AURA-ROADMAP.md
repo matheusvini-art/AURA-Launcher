@@ -1,4 +1,4 @@
-# AURA Launcher 0.4 — plano de evolução
+# AURA Launcher — roadmap 0.5.0
 
 ## Direção de produto
 
@@ -11,45 +11,30 @@
 - Favoritos, ocultos, recentes, pastas e preferências são persistidos em SharedPreferences.
 - A biblioteca consulta atividades com categoria LAUNCHER; recentes são os apps iniciados pelo próprio AURA, não um histórico completo do sistema.
 - Há dois temas, cinco cores, tamanho de ícone, colunas, rótulos e ordenação.
-- O manifesto não declara permissões de internet nem acesso a notificações.
-- Ainda não há dependências nem suíte de testes unitários.
+- O manifesto não declara permissão de internet; o acesso a notificações é opcional e concedido explicitamente pelo usuário.
+- A suíte JVM e o CI executam testes antes da geração do APK.
 
 ## Arquitetura-alvo
 
 Separar gradualmente em pacotes `home`, `apps`, `folders`, `widgets`, `gestures`, `icons`, `backup`, `settings`, `data` e `platform`. Evitar reescrita total: migrar uma funcionalidade por vez, preservando preferências e comportamento existentes.
 
-## Fases e critérios de aceite
+## Entregue nesta branch — 0.5.0 preview
 
-### 0.4.0 — Fundação e experiência principal
-- Refatorar MainActivity em componentes e estado de tela menores.
-- Criar modo de edição da home com páginas, grade configurável e reposicionamento.
-- Redesenhar home, dock, biblioteca, pastas e configurações com linguagem futurista consistente.
-- Preferências aplicadas imediatamente e persistidas.
-- Testes unitários e CI executando testes antes do APK.
+- Home e biblioteca redesenhadas com navegação e hierarquia visual novas.
+- AppWidgetHost/AppWidgetManager: listar provedores do dispositivo, solicitar vínculo ao Android, executar a configuração do provedor, adicionar, remover e posicionar widgets por arraste em canvas livre.
+- IDs e posições dos widgets persistidos em SharedPreferences e incluídos no backup local; IDs inexistentes são descartados na restauração.
+- Gestos configuráveis: deslizar à esquerda para abrir a biblioteca e toque duplo no relógio para abrir o Studio. Pressionar e segurar o relógio alterna o modo de edição dos widgets.
+- Pacotes de ícones com appfilter.xml no formato ADW/Nova; apps sem mapeamento usam o ícone original.
+- NotificationListenerService opcional: badges por pacote com contagens, sem persistir conteúdo das notificações.
+- Backup local schema v2 inclui preferências, pastas, favoritos, ocultos, ícone selecionado, gestos e posições dos widgets. Schema v1 continua aceito.
 
-### 0.5.0 — Widgets reais
-- Implementar AppWidgetHost/AppWidgetManager: selecionar, vincular, configurar, redimensionar, mover e remover.
-- Tratar permissões/consentimento e fluxos de configuração do provedor.
-- Persistir IDs e posições; recuperar widgets após reinicialização.
-- Testar widgets sem configuração, provedores removidos e restauração.
+## Próximas etapas / limitações conhecidas
 
-### 0.6.0 — Gestos e personalização
-- Gestos configuráveis por ação: swipe up/down, double tap e long press; evitar gestos que conflitem com navegação do sistema.
-- Ação de bloquear tela só quando o Android/dispositivo permitir (pode exigir permissão de administrador do dispositivo; nunca solicitar silenciosamente).
-- Pacotes de ícones compatíveis com convenções de launcher (incluindo recursos adaptativos e fallback).
-- Papel de parede, forma/tamanho, transparência e dock.
-
-### 0.7.0 — Notificações e backup
-- Badges via NotificationListenerService somente após explicação e concessão explícita do acesso especial; sem ler/conservar conteúdo de notificações.
-- Exportar/importar arquivo local versionado; validar schema, limitar tamanho e tratar arquivo corrompido.
-- Backup deve conter configurações, favoritos, ocultos, pastas, páginas, posições e bindings; não copiar dados privados dos aplicativos.
-- Restaurar com reconciliação de pacotes ausentes e IDs de widgets inválidos.
-
-### 1.0 — Estabilidade
-- Testes em Android 8 a versões atuais, diferentes densidades e tamanhos.
-- Verificar consumo de bateria, recomposições, memória e tempo de inicialização.
-- Acessibilidade, contraste, TalkBack, áreas de toque e redução de movimento.
-- Testar troca de launcher padrão, atualização e recuperação após crash.
+- Redimensionamento visual de widgets e suporte completo a widgets de tamanhos variáveis.
+- Gestos adicionais (swipe up/down e ações configuráveis por gesto); não há ação de bloquear tela.
+- Suporte a camadas adaptativas, máscaras e recursos de ícone mais variados além de appfilter.xml.
+- Backup de instâncias de widgets entre dispositivos: o Android controla os IDs e exige vínculo/consentimento no dispositivo de destino; por enquanto, IDs não encontrados são ignorados.
+- Refatoração da MainActivity e teste físico em aparelhos Android de diferentes fabricantes/densidades.
 
 ## Segurança e privacidade
 
@@ -60,4 +45,4 @@ Separar gradualmente em pacotes `home`, `apps`, `folders`, `widgets`, `gestures`
 
 ## Estado desta branch
 
-Esta branch inaugura a fundação: formato de backup versionado testável, testes unitários e CI que executa testes antes de montar o APK. Widgets, gestos na UI, ícones e badges ainda não são anunciados como implementados; serão entregues em etapas com testes de dispositivo.
+Esta é uma versão de prévia funcional. As integrações nativas acima estão conectadas ao fluxo do launcher e passam pela compilação/CI; ainda é necessário validar interação real com provedores de widgets e permissões em aparelhos físicos antes de uma publicação estável.
