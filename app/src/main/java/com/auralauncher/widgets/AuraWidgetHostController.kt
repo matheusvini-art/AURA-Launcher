@@ -13,6 +13,10 @@ class AuraWidgetHostController(private val activity: Activity) {
     val manager: AppWidgetManager = AppWidgetManager.getInstance(activity)
     val host: AppWidgetHost = AppWidgetHost(activity, HOST_ID)
 
+    fun startListening() = host.startListening()
+
+    fun stopListening() = runCatching { host.stopListening() }
+
     fun allocateWidgetId(): Int = host.allocateAppWidgetId()
 
     fun createHostView(widgetId: Int): AppWidgetHostView? {
