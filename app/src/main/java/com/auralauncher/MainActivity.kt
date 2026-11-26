@@ -2085,11 +2085,11 @@ private fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("AURA LAUNCHER", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.7.sp)
+                    Text("AURA LAUNCHER", color = Color(0xFFF6F0FF), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.7.sp)
                     Spacer(Modifier.height(6.dp))
                     Text(
                         if (isDefault) "Seu espaço está ativo." else "Seu espaço está quase pronto.",
-                        color = AuraWhite,
+                        color = Color(0xFFFFFFFF),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -2119,14 +2119,14 @@ private fun SettingsScreen(
                 Text("${iconSize.toInt()} dp", color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             Slider(value = iconSize, onValueChange = onIconSize, valueRange = 42f..72f)
-            Divider(color = Color.White.copy(alpha = 0.08f))
+            Divider(color = Color(0xFFE6DFF2))
             Text("Colunas da biblioteca", color = AuraWhite, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 (3..6).forEach { count ->
                     ChoiceChip(count.toString(), columns == count, accent) { onColumns(count) }
                 }
             }
-            Divider(color = Color.White.copy(alpha = 0.08f))
+            Divider(color = Color(0xFFE6DFF2))
             SettingSwitch("Nome dos aplicativos", "Mostrar o nome abaixo dos ícones", labels, onLabels)
         }
 
@@ -2134,10 +2134,10 @@ private fun SettingsScreen(
         SettingCard {
             Text("Tema", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                ThemePreview("Graphite", themeMode == 0, Color(0xFFFFFFFF), accent) { onTheme(0) }
+                ThemePreview("Lavanda", themeMode == 0, Color(0xFFF0ECFA), accent) { onTheme(0) }
                 ThemePreview("Noite", themeMode == 1, Color(0xFF302A43), accent) { onTheme(1) }
             }
-            Divider(color = Color.White.copy(alpha = 0.08f))
+            Divider(color = Color(0xFFE6DFF2))
             Text("Cor de destaque", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -2155,13 +2155,13 @@ private fun SettingsScreen(
                     }
                 }
             }
-            Divider(color = Color.White.copy(alpha = 0.08f))
+            Divider(color = Color(0xFFE6DFF2))
             Text("Ordem da biblioteca", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ChoiceChip("Nome A–Z", sortMode == 0, accent) { onSort(0) }
                 ChoiceChip("Usados recentemente", sortMode == 1, accent) { onSort(1) }
             }
-            Divider(color = Color.White.copy(alpha = 0.08f))
+            Divider(color = Color(0xFFE6DFF2))
             SettingSwitch("Movimento suave", "Animação da seção de aplicativos recentes", animations, onAnimations)
         }
 
@@ -2222,7 +2222,7 @@ private fun SettingsScreen(
                     }
                 }
             }
-            Divider(color = Color.White.copy(alpha = 0.08f))
+            Divider(color = Color(0xFFE6DFF2))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Aplicativos ocultos", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
@@ -2316,7 +2316,7 @@ private fun SettingsScreen(
                 swipeLeftEnabled,
                 onSwipeLeftGesture
             )
-            Divider(color = Color.White.copy(alpha = 0.08f))
+            Divider(color = Color(0xFFE6DFF2))
             SettingSwitch(
                 "Toque duplo no relógio",
                 "Abrir o Studio de personalização",
