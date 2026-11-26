@@ -1257,12 +1257,7 @@ private fun HomeScreen(
                                         .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(20.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Image(
-                                        bitmap = remember(app.packageName) { app.icon.toImageBitmap() },
-                                        contentDescription = app.title,
-                                        modifier = Modifier.size(iconSize.coerceIn(42f, 54f).dp)
-                                            .clip(RoundedCornerShape(15.dp))
-                                    )
+                                    AppIconArtwork(app, iconSize.coerceIn(42f, 54f))
                                 }
                                 if (labels) {
                                     Spacer(Modifier.height(7.dp))
@@ -1305,11 +1300,7 @@ private fun HomeScreen(
                                         .padding(horizontal = 11.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Image(
-                                        bitmap = remember(app.packageName) { app.icon.toImageBitmap() },
-                                        contentDescription = app.title,
-                                        modifier = Modifier.size(35.dp).clip(RoundedCornerShape(11.dp))
-                                    )
+                                    AppIconArtwork(app, 35f, RoundedCornerShape(11.dp))
                                     Spacer(Modifier.width(9.dp))
                                     Text(
                                         app.title,
@@ -1393,6 +1384,38 @@ private fun HomeScreen(
                     .clickable { onSetDefault() }
                     .padding(4.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun AppIconArtwork(
+    app: LaunchableApp,
+    sizeDp: Float,
+    shape: RoundedCornerShape = RoundedCornerShape(15.dp)
+) {
+    val bitmap = remember(app.packageName) { app.icon.toImageBitmap() }
+    Box(modifier = Modifier.size(sizeDp.dp)) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = app.title,
+            modifier = Modifier.fillMaxSize().clip(shape)
+        )
+        if (app.notificationCount > 0) {
+            Box(
+                modifier = Modifier.align(Alignment.TopEnd)
+                    .size(17.dp).clip(CircleShape)
+                    .background(Color(0xFFFF526B))
+                    .border(1.dp, AuraBlack, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    if (app.notificationCount > 9) "9+" else app.notificationCount.toString(),
+                    color = Color.White,
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
@@ -1589,11 +1612,7 @@ private fun DrawerScreen(
                                 .border(1.dp, Color.White.copy(alpha = 0.075f), RoundedCornerShape(22.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Image(
-                                bitmap = remember(app.packageName) { app.icon.toImageBitmap() },
-                                contentDescription = app.title,
-                                modifier = Modifier.size(iconSize.coerceIn(38f, 62f).dp).clip(RoundedCornerShape(15.dp))
-                            )
+                            AppIconArtwork(app, iconSize.coerceIn(38f, 62f))
                         }
                         if (labels) {
                             Spacer(Modifier.height(7.dp))
@@ -2247,11 +2266,7 @@ private fun FolderContentsDialog(
                         modifier = Modifier.fillMaxWidth().clickable { onLaunch(app) }.padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Image(
-                            bitmap = remember(app.packageName) { app.icon.toImageBitmap() },
-                            contentDescription = app.title,
-                            modifier = Modifier.size(34.dp).clip(RoundedCornerShape(9.dp))
-                        )
+                        AppIconArtwork(app, 34f, RoundedCornerShape(9.dp))
                         Spacer(Modifier.width(12.dp))
                         Text(app.title, color = AuraWhite, modifier = Modifier.weight(1f))
                         Text("Abrir", color = accent, fontSize = 11.sp)
