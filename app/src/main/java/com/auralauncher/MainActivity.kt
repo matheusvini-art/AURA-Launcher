@@ -1,7 +1,16 @@
 package com.auralauncher
 
 import android.app.role.RoleManager
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import android.provider.Settings.Secure
 import com.auralauncher.backup.LauncherBackup
+import com.auralauncher.widgets.AuraWidgetHostController
+import com.auralauncher.icons.IconPackManager
+import com.auralauncher.notifications.AuraNotificationListenerService
 import com.auralauncher.backup.LauncherBackupCodec
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -90,6 +99,8 @@ import android.widget.Toast
 import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -97,7 +108,9 @@ import java.util.Locale
 private data class LaunchableApp(
     val title: String,
     val packageName: String,
-    val icon: Drawable
+    val icon: Drawable,
+    val activityClassName: String = "",
+    val notificationCount: Int = 0
 )
 
 private data class AppFolder(
@@ -108,6 +121,37 @@ private data class AppFolder(
 class MainActivity : ComponentActivity() {
     private lateinit var appState: androidx.compose.runtime.MutableState<List<LaunchableApp>>
     private lateinit var defaultState: androidx.compose.runtime.MutableState<Boolean>
+    private lateinit var widgetHostController: AuraWidgetHostController
+    private lateinit var widgetPlacementsState: androidx.compose.runtime.MutableState<List<WidgetPlacement>>
+    private var pendingWidgetId: Int? = null
+
+    private val notificationRefreshReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (::appState.isInitialized) appState.value = loadLaunchableApps()
+        }
+    }
+
+    private val widgetBindLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val widgetId = pendingWidgetId ?: return@registerForActivityResult
+            if (result.resultCode == RESULT_OK) {
+                finishWidgetConfiguration(widgetId)
+            } else {
+                widgetHostController.deleteWidget(widgetId)
+                pendingWidgetId = null
+            }
+        }
+
+    private val widgetConfigLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val widgetId = pendingWidgetId ?: return@registerForActivityResult
+            if (result.resultCode == RESULT_OK) {
+                keepWidget(widgetId)
+            } else {
+                widgetHostController.deleteWidget(widgetId)
+                pendingWidgetId = null
+            }
+        }
 
     private val backupExportLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
@@ -185,9 +229,11 @@ class MainActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         window.navigationBarColor = android.graphics.Color.rgb(17, 16, 15)
 
+        widgetHostController = AuraWidgetHostController(this)
+        val prefs = getSharedPreferences("aura_preferences", MODE_PRIVATE)
+        widgetPlacementsState = mutableStateOf(WidgetPlacementCodec.decode(prefs.getString("widget_placements", "[]")))
         appState = mutableStateOf(loadLaunchableApps())
         defaultState = mutableStateOf(isDefaultHome())
-        val prefs = getSharedPreferences("aura_preferences", MODE_PRIVATE)
 
         setContent {
             AuraTheme {
@@ -205,7 +251,24 @@ class MainActivity : ComponentActivity() {
                     theme = prefs.getInt("theme", 0),
                     sortMode = prefs.getInt("sort_mode", 0),
                     animations = prefs.getBoolean("animations", true),
+                    initialWidgetPlacements = widgetPlacementsState.value,
+                    widgetController = widgetHostController,
+                    widgetProviders = widgetHostController.manager.installedProviders.orEmpty(),
+                    installedIconPacks = IconPackManager.installedPacks(this),
+                    initialIconPack = prefs.getString("icon_pack", null),
+                    notificationAccessEnabled = isNotificationAccessEnabled(),
+                    swipeLeftEnabled = prefs.getBoolean("gesture_swipe_left", true),
+                    doubleTapSettingsEnabled = prefs.getBoolean("gesture_double_tap", true),
                     onSetDefault = ::requestDefaultLauncher,
+                    onAddWidget = ::beginWidgetSetup,
+                    onRemoveWidget = ::removeWidget,
+                    onMoveWidget = ::moveWidget,
+                    onSelectIconPack = ::saveIconPack,
+                    onOpenNotificationSettings = ::openNotificationAccessSettings,
+                    onSaveGestureSettings = { swipe, doubleTap ->
+                        prefs.edit().putBoolean("gesture_swipe_left", swipe)
+                            .putBoolean("gesture_double_tap", doubleTap).apply()
+                    },
                     onExportBackup = { backupExportLauncher.launch("AURA-backup.aura") },
                     onImportBackup = { backupImportLauncher.launch(arrayOf("application/octet-stream", "text/plain", "*/*")) },
                     onLaunch = { packageName ->
@@ -250,10 +313,98 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (::widgetHostController.isInitialized) runCatching { widgetHostController.startListening() }
+        val filter = IntentFilter(AuraNotificationListenerService.ACTION_COUNTS_CHANGED)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(notificationRefreshReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(notificationRefreshReceiver, filter)
+        }
+    }
+
+    override fun onStop() {
+        runCatching { unregisterReceiver(notificationRefreshReceiver) }
+        if (::widgetHostController.isInitialized) widgetHostController.stopListening()
+        super.onStop()
+    }
+
     override fun onResume() {
         super.onResume()
         if (::appState.isInitialized) appState.value = loadLaunchableApps()
         if (::defaultState.isInitialized) defaultState.value = isDefaultHome()
+    }
+
+    private fun beginWidgetSetup(provider: AppWidgetProviderInfo) {
+        val widgetId = widgetHostController.allocateWidgetId()
+        pendingWidgetId = widgetId
+        val bound = runCatching {
+            widgetHostController.manager.bindAppWidgetIdIfAllowed(widgetId, provider.provider)
+        }.getOrDefault(false)
+        if (bound) {
+            finishWidgetConfiguration(widgetId)
+        } else {
+            val bindIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, provider.provider)
+            widgetBindLauncher.launch(bindIntent)
+        }
+    }
+
+    private fun finishWidgetConfiguration(widgetId: Int) {
+        val info = widgetHostController.manager.getAppWidgetInfo(widgetId)
+        val configure = info?.configure
+        if (configure == null) {
+            keepWidget(widgetId)
+            return
+        }
+        val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
+            .setComponent(configure)
+            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+        widgetConfigLauncher.launch(intent)
+    }
+
+    private fun keepWidget(widgetId: Int) {
+        val current = widgetPlacementsState.value
+        val next = current + WidgetPlacement(widgetId = widgetId, xDp = 8f, yDp = 8f + current.size * 190f)
+        widgetPlacementsState.value = next
+        getSharedPreferences("aura_preferences", MODE_PRIVATE).edit()
+            .putString("widget_placements", WidgetPlacementCodec.encode(next)).apply()
+        pendingWidgetId = null
+    }
+
+    private fun removeWidget(widgetId: Int) {
+        widgetHostController.deleteWidget(widgetId)
+        val next = widgetPlacementsState.value.filterNot { it.widgetId == widgetId }
+        widgetPlacementsState.value = next
+        getSharedPreferences("aura_preferences", MODE_PRIVATE).edit()
+            .putString("widget_placements", WidgetPlacementCodec.encode(next)).apply()
+    }
+
+    private fun moveWidget(placement: WidgetPlacement) {
+        val next = widgetPlacementsState.value.map {
+            if (it.widgetId == placement.widgetId) placement else it
+        }
+        widgetPlacementsState.value = next
+        getSharedPreferences("aura_preferences", MODE_PRIVATE).edit()
+            .putString("widget_placements", WidgetPlacementCodec.encode(next)).apply()
+    }
+
+    private fun saveIconPack(packageName: String?) {
+        getSharedPreferences("aura_preferences", MODE_PRIVATE).edit().putString("icon_pack", packageName).apply()
+        if (::appState.isInitialized) appState.value = loadLaunchableApps()
+    }
+
+    private fun isNotificationAccessEnabled(): Boolean =
+        Secure.getString(contentResolver, "enabled_notification_listeners")?.contains(packageName) == true
+
+    private fun openNotificationAccessSettings() {
+        runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+            .onFailure {
+                Toast.makeText(this, "Não foi possível abrir as permissões de notificações.", Toast.LENGTH_LONG).show()
+            }
     }
 
     private fun isDefaultHome(): Boolean {
@@ -323,10 +474,22 @@ class MainActivity : ComponentActivity() {
         return packageManager.queryIntentActivities(launcherIntent, PackageManager.MATCH_ALL)
             .mapNotNull { info ->
                 val activityInfo = info.activityInfo ?: return@mapNotNull null
+                val prefs = getSharedPreferences("aura_preferences", MODE_PRIVATE)
+                val packageName = activityInfo.packageName
+                val iconPack = prefs.getString("icon_pack", null)
+                val counts = runCatching {
+                    JSONObject(prefs.getString(AuraNotificationListenerService.KEY_COUNTS, "{}") ?: "{}")
+                        .optInt(packageName, 0)
+                }.getOrDefault(0)
+                val appIcon = IconPackManager.loadDrawable(
+                    this, packageName, activityInfo.name, iconPack
+                ) ?: info.loadIcon(packageManager)
                 LaunchableApp(
                     title = info.loadLabel(packageManager).toString(),
-                    packageName = activityInfo.packageName,
-                    icon = info.loadIcon(packageManager)
+                    packageName = packageName,
+                    icon = appIcon,
+                    activityClassName = activityInfo.name,
+                    notificationCount = counts
                 )
             }
             .distinctBy { it.packageName }
