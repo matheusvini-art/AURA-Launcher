@@ -173,7 +173,8 @@ class MainActivity : ComponentActivity() {
                         animationsEnabled = prefs.getBoolean("animations", true),
                         iconPackPackage = prefs.getString("icon_pack", null),
                         swipeLeftGestureEnabled = prefs.getBoolean("gesture_swipe_left", true),
-                        doubleTapSettingsEnabled = prefs.getBoolean("gesture_double_tap", true)
+                        doubleTapSettingsEnabled = prefs.getBoolean("gesture_double_tap", true),
+                        widgetPlacementsJson = prefs.getString("widget_placements", "[]") ?: "[]"
                     )
                     val output = contentResolver.openOutputStream(uri)
                         ?: error("Não foi possível abrir o arquivo de destino.")
@@ -208,6 +209,7 @@ class MainActivity : ComponentActivity() {
                         .putString("icon_pack", snapshot.iconPackPackage)
                         .putBoolean("gesture_swipe_left", snapshot.swipeLeftGestureEnabled)
                         .putBoolean("gesture_double_tap", snapshot.doubleTapSettingsEnabled)
+                        .putString("widget_placements", snapshot.widgetPlacementsJson)
                         .apply()
                 }.onSuccess {
                     Toast.makeText(this, "Backup restaurado. Atualizando o AURA…", Toast.LENGTH_LONG).show()
@@ -238,7 +240,10 @@ class MainActivity : ComponentActivity() {
 
         widgetHostController = AuraWidgetHostController(this)
         val prefs = getSharedPreferences("aura_preferences", MODE_PRIVATE)
-        widgetPlacementsState = mutableStateOf(WidgetPlacementCodec.decode(prefs.getString("widget_placements", "[]")))
+        widgetPlacementsState = mutableStateOf(
+            WidgetPlacementCodec.decode(prefs.getString("widget_placements", "[]"))
+                .filter { widgetHostController.manager.getAppWidgetInfo(it.widgetId) != null }
+        )
         appState = mutableStateOf(loadLaunchableApps())
         defaultState = mutableStateOf(isDefaultHome())
         notificationAccessState = mutableStateOf(isNotificationAccessEnabled())
