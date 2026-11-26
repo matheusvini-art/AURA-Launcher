@@ -22,7 +22,8 @@ data class LauncherBackup(
     val animationsEnabled: Boolean = true,
     val iconPackPackage: String? = null,
     val swipeLeftGestureEnabled: Boolean = true,
-    val doubleTapSettingsEnabled: Boolean = true
+    val doubleTapSettingsEnabled: Boolean = true,
+    val widgetPlacementsJson: String = "[]"
 )
 
 object LauncherBackupCodec {
@@ -47,6 +48,7 @@ object LauncherBackupCodec {
             setProperty("iconPackPackage", backup.iconPackPackage.orEmpty())
             setProperty("swipeLeftGestureEnabled", backup.swipeLeftGestureEnabled.toString())
             setProperty("doubleTapSettingsEnabled", backup.doubleTapSettingsEnabled.toString())
+            setProperty("widgetPlacementsJson", backup.widgetPlacementsJson)
         }
         return StringWriter().also { properties.store(it, "AURA Launcher backup") }.toString()
     }
@@ -81,7 +83,8 @@ object LauncherBackupCodec {
             animationsEnabled = properties.getProperty("animationsEnabled", "true").toBooleanStrict(),
             iconPackPackage = properties.getProperty("iconPackPackage", "").ifBlank { null },
             swipeLeftGestureEnabled = properties.getProperty("swipeLeftGestureEnabled", "true").toBooleanStrict(),
-            doubleTapSettingsEnabled = properties.getProperty("doubleTapSettingsEnabled", "true").toBooleanStrict()
+            doubleTapSettingsEnabled = properties.getProperty("doubleTapSettingsEnabled", "true").toBooleanStrict(),
+            widgetPlacementsJson = properties.getProperty("widgetPlacementsJson", "[]")
         )
         validate(backup)
         return backup
@@ -94,6 +97,7 @@ object LauncherBackupCodec {
         require(backup.themeMode in 0..4) { "Theme mode is invalid." }
         require(backup.sortMode in 0..4) { "Sort mode is invalid." }
         require(backup.foldersJson.length <= 128_000) { "Folder data is too large." }
+        require(backup.widgetPlacementsJson.length <= 128_000) { "Widget layout data is too large." }
         require((backup.iconPackPackage?.length ?: 0) <= 255 && backup.iconPackPackage?.contains('\n') != true) {
             "Icon pack package name is invalid."
         }
