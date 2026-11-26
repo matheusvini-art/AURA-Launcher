@@ -244,6 +244,7 @@ class MainActivity : ComponentActivity() {
             WidgetPlacementCodec.decode(prefs.getString("widget_placements", "[]"))
                 .filter { widgetHostController.manager.getAppWidgetInfo(it.widgetId) != null }
         )
+        prefs.edit().putString("widget_placements", WidgetPlacementCodec.encode(widgetPlacementsState.value)).apply()
         appState = mutableStateOf(loadLaunchableApps())
         defaultState = mutableStateOf(isDefaultHome())
         notificationAccessState = mutableStateOf(isNotificationAccessEnabled())
@@ -1159,8 +1160,13 @@ private fun HomeScreen(
                             fontSize = 9.sp
                         )
                     }
-                    TextButton(onClick = onOpenWidgetPicker) {
-                        Text("+ ADICIONAR", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = onToggleEditMode) {
+                            Text(if (editMode) "CONCLUIR" else "EDITAR", color = if (editMode) Color(0xFF9BE4C0) else accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+                        TextButton(onClick = onOpenWidgetPicker) {
+                            Text("+ ADICIONAR", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
                 if (editMode) {
@@ -1198,6 +1204,7 @@ private fun HomeScreen(
                         placements = widgetPlacements,
                         controller = widgetController,
                         accent = accent,
+                        editable = editMode,
                         onMove = onMoveWidget,
                         onRemove = onRemoveWidget
                     )
