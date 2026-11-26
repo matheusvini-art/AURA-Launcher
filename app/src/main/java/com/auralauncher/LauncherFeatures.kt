@@ -144,6 +144,7 @@ fun WidgetWorkspace(
     placements: List<WidgetPlacement>,
     controller: AuraWidgetHostController,
     accent: Color,
+    editable: Boolean,
     onMove: (WidgetPlacement) -> Unit,
     onRemove: (Int) -> Unit
 ) {
@@ -183,24 +184,28 @@ fun WidgetWorkspace(
                     Row(
                         modifier = Modifier.fillMaxWidth()
                             .background(Color(0xFF243750))
-                            .pointerInput(placement.widgetId, availableWidth) {
-                                detectDragGestures(
-                                    onDragEnd = { onMove(placement.copy(xDp = x, yDp = y)) }
-                                ) { change, amount ->
-                                    change.consume()
-                                    val maxX = (availableWidth - 270.dp).value.coerceAtLeast(0f)
-                                    x = (x + amount.x / density.density).coerceIn(0f, maxX)
-                                    y = (y + amount.y / density.density).coerceIn(0f, canvasMaxY)
-                                }
-                            }
+                            .then(
+                                if (editable) Modifier.pointerInput(placement.widgetId, availableWidth) {
+                                    detectDragGestures(
+                                        onDragEnd = { onMove(placement.copy(xDp = x, yDp = y)) }
+                                    ) { change, amount ->
+                                        change.consume()
+                                        val maxX = (availableWidth - 270.dp).value.coerceAtLeast(0f)
+                                        x = (x + amount.x / density.density).coerceIn(0f, maxX)
+                                        y = (y + amount.y / density.density).coerceIn(0f, canvasMaxY)
+                                    }
+                                } else Modifier
+                            )
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("✥", color = accent, fontSize = 14.sp)
                         Spacer(Modifier.width(7.dp))
-                        Text("MOVER WIDGET", color = Color(0xFFDCE8F6), fontSize = 8.sp, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { onRemove(placement.widgetId) }) {
-                            Text("REMOVER", color = Color(0xFFFFA0A0), fontSize = 8.sp)
+                        Text(if (editable) "MOVER WIDGET" else "WIDGET", color = Color(0xFFDCE8F6), fontSize = 8.sp, modifier = Modifier.weight(1f))
+                        if (editable) {
+                            TextButton(onClick = { onRemove(placement.widgetId) }) {
+                                Text("REMOVER", color = Color(0xFFFFA0A0), fontSize = 8.sp)
+                            }
                         }
                     }
                     AndroidView(
