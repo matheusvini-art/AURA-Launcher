@@ -29,7 +29,7 @@ class LauncherBackupCodecTest {
 
     @Test
     fun readsLegacySchemaOneWithNewFeatureDefaults() {
-        val restored = LauncherBackupCodec.decode("schema=1\\nfavorites=com.example.mail\\n")
+        val restored = LauncherBackupCodec.decode("schema=1\nfavorites=com.example.mail\n")
         assertEquals(setOf("com.example.mail"), restored.favorites)
         assertEquals(null, restored.iconPackPackage)
         assertEquals(true, restored.swipeLeftGestureEnabled)
