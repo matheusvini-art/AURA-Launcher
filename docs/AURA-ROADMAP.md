@@ -21,20 +21,22 @@ Separar gradualmente em pacotes `home`, `apps`, `folders`, `widgets`, `gestures`
 ## Entregue nesta branch — 0.5.0 preview
 
 - Home e biblioteca redesenhadas com navegação e hierarquia visual novas.
-- AppWidgetHost/AppWidgetManager: listar provedores do dispositivo, solicitar vínculo ao Android, executar a configuração do provedor, adicionar, remover e posicionar widgets por arraste em canvas livre.
-- IDs e posições dos widgets persistidos em SharedPreferences e incluídos no backup local; IDs inexistentes são descartados na restauração.
-- Gestos configuráveis: deslizar à esquerda para abrir a biblioteca e toque duplo no relógio para abrir o Studio. Pressionar e segurar o relógio alterna o modo de edição dos widgets.
-- Pacotes de ícones com appfilter.xml no formato ADW/Nova; apps sem mapeamento usam o ícone original.
-- NotificationListenerService opcional: badges por pacote com contagens, sem persistir conteúdo das notificações.
-- Backup local schema v2 inclui preferências, pastas, favoritos, ocultos, ícone selecionado, gestos e posições dos widgets. Schema v1 continua aceito.
+- **Widgets Android reais:** AppWidgetHost/AppWidgetManager lista provedores, pede vínculo ao Android, executa a configuração do provedor, adiciona e remove instâncias e mostra o AppWidgetHostView original.
+- **Posicionamento livre de widgets:** canvas com arraste; tamanho horizontal/vertical ajustável somente quando o provedor declara suporte. As dimensões são enviadas ao AppWidgetManager.
+- **Posicionamento livre de aplicativos:** segure um ícone na biblioteca, escolha “Adicionar à Home” e arraste o atalho na área livre. O modo EDITAR permite mover/remover atalhos e widgets.
+- IDs, posições e dimensões dos widgets e atalhos são persistidos localmente e incluídos no backup; IDs de widgets ausentes no aparelho são descartados na restauração.
+- **Gestos:** deslizar à esquerda abre a biblioteca; toque duplo no relógio abre o Studio; pressionar e segurar o relógio alterna o modo de edição. Os dois primeiros podem ser ativados/desativados nas configurações.
+- **Icon packs:** descoberta e mapeamento inicial ADW/Nova via appfilter.xml; apps sem recurso compatível usam o ícone original.
+- **Notificações:** NotificationListenerService opcional com badges por contagem de notificações por pacote. O usuário concede o acesso especial em Configurações do Android; o AURA não persiste o conteúdo.
+- **Backup local schema v2:** preferências, pastas, favoritos, ocultos, ícone selecionado, gestos, posições/dimensões dos widgets e posições dos atalhos. Schema v1 continua aceito.
 
 ## Próximas etapas / limitações conhecidas
 
-- Redimensionamento visual de widgets e suporte completo a widgets de tamanhos variáveis.
-- Gestos adicionais (swipe up/down e ações configuráveis por gesto); não há ação de bloquear tela.
-- Suporte a camadas adaptativas, máscaras e recursos de ícone mais variados além de appfilter.xml.
-- Backup de instâncias de widgets entre dispositivos: o Android controla os IDs e exige vínculo/consentimento no dispositivo de destino; por enquanto, IDs não encontrados são ignorados.
-- Refatoração da MainActivity e teste físico em aparelhos Android de diferentes fabricantes/densidades.
+- Gestos adicionais como swipe up/down, ações livremente atribuíveis e personalização independente por gesto.
+- Suporte a camadas adaptativas, máscaras, icon packs com formatos proprietários e recursos fora do appfilter.xml comum.
+- Transferência de instâncias de widgets entre dispositivos: o Android controla os IDs e exige novo vínculo/consentimento no dispositivo de destino. O backup guarda layout/IDs para recuperação no mesmo aparelho; IDs não encontrados são ignorados.
+- Refinar o resize para cada comportamento específico de provedor e testar provedores que aceitam apenas um eixo ou que não aceitam redimensionamento.
+- Refatoração da MainActivity e teste físico em aparelhos Android de diferentes fabricantes/densidades. CI confirma compilação e testes JVM, mas não substitui o teste em dispositivos reais.
 
 ## Segurança e privacidade
 
