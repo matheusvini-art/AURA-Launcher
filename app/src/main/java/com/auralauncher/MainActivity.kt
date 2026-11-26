@@ -909,6 +909,8 @@ private fun HomeScreen(
     favorites: List<LaunchableApp>,
     recentApps: List<LaunchableApp>,
     folders: List<AppFolder>,
+    homeShortcutItems: List<HomeShortcutItem>,
+    homeShortcuts: List<HomeShortcutPlacement>,
     iconSize: Float,
     labels: Boolean,
     accent: Color,
@@ -927,6 +929,9 @@ private fun HomeScreen(
     doubleTapSettingsEnabled: Boolean,
     onToggleEditMode: () -> Unit,
     onOpenWidgetPicker: () -> Unit,
+    onOpenLibraryForShortcut: () -> Unit,
+    onMoveHomeShortcut: (HomeShortcutPlacement) -> Unit,
+    onRemoveHomeShortcut: (String) -> Unit,
     onMoveWidget: (WidgetPlacement) -> Unit,
     onRemoveWidget: (Int) -> Unit
 ) {
@@ -1199,6 +1204,57 @@ private fun HomeScreen(
                         accent = accent,
                         modifier = Modifier.weight(1f),
                         onClick = onOpenSettings
+                    )
+                }
+
+                Spacer(Modifier.height(22.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("ÁREA LIVRE", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                        Text("Atalhos posicionados por você", color = AuraMuted, fontSize = 9.sp)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = onToggleEditMode) {
+                            Text(if (editMode) "CONCLUIR" else "EDITAR", color = if (editMode) Color(0xFF9BE4C0) else accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+                        TextButton(onClick = onOpenLibraryForShortcut) {
+                            Text("+ APP", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                if (homeShortcuts.isEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                            .background(Color(0xFF111F33))
+                            .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(18.dp))
+                            .clickable { onOpenLibraryForShortcut() }
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(39.dp).clip(RoundedCornerShape(12.dp)).background(accent.copy(alpha = 0.13f)), contentAlignment = Alignment.Center) {
+                            Text("＋", color = accent, fontSize = 20.sp)
+                        }
+                        Spacer(Modifier.width(11.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Fixe aplicativos na Home", color = AuraWhite, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Abra a biblioteca, segure um app e escolha Adicionar à Home.", color = AuraMuted, fontSize = 9.sp)
+                        }
+                        Text("›", color = accent, fontSize = 22.sp)
+                    }
+                } else {
+                    HomeShortcutWorkspace(
+                        items = homeShortcutItems,
+                        placements = homeShortcuts,
+                        accent = accent,
+                        editable = editMode,
+                        onLaunch = { packageName ->
+                            homeShortcutItems.firstOrNull { it.packageName == packageName }?.let { item ->
+                                onLaunch(LaunchableApp(item.title, item.packageName, item.icon))
+                            }
+                        },
+                        onMove = onMoveHomeShortcut,
+                        onRemove = onRemoveHomeShortcut
                     )
                 }
 
@@ -2221,7 +2277,9 @@ private fun AppActionsDialog(
     app: LaunchableApp,
     isFavorite: Boolean,
     isHidden: Boolean,
+    isOnHome: Boolean,
     onDismiss: () -> Unit,
+    onAddToHome: () -> Unit,
     onFavorite: () -> Unit,
     onHide: () -> Unit,
     onInfo: () -> Unit,
@@ -2238,6 +2296,9 @@ private fun AppActionsDialog(
             Column(horizontalAlignment = Alignment.End) {
                 TextButton(onClick = onFavorite) {
                     Text(if (isFavorite) "Remover dos favoritos" else "Adicionar aos favoritos")
+                }
+                TextButton(onClick = onAddToHome) {
+                    Text(if (isOnHome) "Remover da Home" else "Adicionar à Home")
                 }
                 TextButton(onClick = onHide) {
                     Text(if (isHidden) "Mostrar na gaveta" else "Ocultar aplicativo")
