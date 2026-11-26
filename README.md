@@ -54,7 +54,7 @@ Abra o AURA e toque em **Definir AURA como principal**. No Android 10 ou superio
 
 - O manifesto não declara permissão INTERNET, acesso a contatos, localização, câmera ou leitura ampla de arquivos.
 - A seleção da foto é feita pelo seletor do sistema; o AURA mantém uma cópia privada e local.
-- O acesso a notificações é **opcional** e exige ativação explícita nas configurações especiais do Android. O serviço observa notificações ativas para calcular quantidades por aplicativo; o AURA persiste apenas as contagens por pacote, não textos, títulos ou conteúdo das mensagens.
+- O acesso a notificações é **opcional** e exige ativação explícita nas configurações especiais do Android. O serviço não é exportado para outros aplicativos, é protegido pela permissão de binding do sistema e recebe alertas/conversas por padrão, excluindo notificações contínuas e silenciosas. O AURA persiste apenas as contagens por pacote, não textos, títulos ou conteúdo das mensagens; as contagens locais são apagadas quando o acesso é revogado.
 - Widgets são fornecidos por outros aplicativos. O conteúdo e o comportamento de cada widget são responsabilidade do aplicativo provedor.
 - Informações de apps, abertura de configurações e pedidos de desinstalação são encaminhados às telas oficiais do Android.
 - Não há conta, analytics ou SDK de publicidade nesta versão.
