@@ -20,9 +20,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -142,7 +145,7 @@ fun HomeShortcutWorkspace(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
-                            modifier = Modifier.weight(1f).pointerInput(placement.packageName, availableWidth) {
+                            modifier = Modifier.weight(1f).pointerInput(placement.packageName, availableWidth, editable) {
                                 if (editable) {
                                     detectDragGestures(
                                         onDragEnd = { onMove(placement.copy(xDp = x, yDp = y)) }
@@ -252,7 +255,10 @@ fun WidgetPickerDialog(
         textContentColor = Color(0xFF91A4C2),
         title = { Text("Adicionar widget", fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 if (providers.isEmpty()) {
                     Text("Nenhum aplicativo instalado oferece widgets.")
                 } else {
@@ -350,7 +356,7 @@ fun WidgetWorkspace(
                         modifier = Modifier.fillMaxWidth()
                             .background(Color(0xFF243750))
                             .then(
-                                if (editable) Modifier.pointerInput(placement.widgetId, availableWidth) {
+                                if (editable) Modifier.pointerInput(placement.widgetId, availableWidth, editable) {
                                     detectDragGestures(
                                         onDragEnd = { onMove(placement.copy(xDp = x, yDp = y, widthDp = width, heightDp = height)) }
                                     ) { change, amount ->
