@@ -26,10 +26,13 @@
 
 - **Papel de parede personalizado:** seletor visual do Android, cópia para armazenamento privado do app, prévia, troca e restauração do fundo original.
 - Validação de imagens: limite de 20 MB, verificação de dimensões/formato e decodificação com amostragem até 1920 px para reduzir uso de memória.
-- Processamento da importação de imagem fora da thread principal e cancelamento do escopo da Activity ao ser destruída.
+- Processamento da importação de imagem fora da thread principal, cancelamento correto do trabalho da Activity ao ser destruída e preservação do papel de parede anterior se a substituição falhar.
 - Botão Voltar do Android retorna da tela de configurações ou biblioteca à Home.
 - Importador de backup lê em fluxo e interrompe a leitura ao exceder 512 KB, antes de manter um arquivo excessivo em memória.
 - Cache de ícones Compose é invalidado também quando o Drawable muda, permitindo que a troca de icon pack atualize a arte.
+- Cache dos mapeamentos XML de icon packs para evitar reler o mesmo appfilter.xml para cada aplicativo.
+- Gestos de arraste de atalhos/widgets reiniciam ao alternar o modo de edição; a lista de provedores de widgets tem altura limitada e rolagem.
+- Serviço de notificações não exportado, protegido por binding do sistema, com filtros padrão para alertas/conversas; contagens antigas são removidas quando o acesso é revogado.
 
 ## Limitações conhecidas
 
@@ -44,7 +47,7 @@
 
 - Manter armazenamento local como padrão e não adicionar permissões amplas sem necessidade.
 - O AURA não pede permissão de armazenamento/fotos: usa o seletor de documentos do Android e guarda a imagem no diretório privado.
-- O acesso a notificações é especial, opcional e altamente sensível. Ele é usado para contar notificações por pacote; conteúdo de mensagens não é persistido. Testar concessão, revogação e comportamento sem acesso.
+- O acesso a notificações é especial, opcional e altamente sensível. O serviço deve permanecer não exportado e protegido por BIND_NOTIFICATION_LISTENER_SERVICE; filtrar tipos não necessários, persistir somente contagens por pacote e limpar contagens quando o acesso for revogado. Testar concessão, revogação e comportamento sem acesso.
 - Widgets são código/conteúdo dos aplicativos provedores e devem ser tratados como integrações de terceiros.
 - Importação de backup deve permanecer limitada e validada; não confiar em nomes de pacotes, JSON ou IDs vindos do arquivo.
 - Não prometer proteção absoluta: reduzir superfície de ataque, manter dependências mínimas e testar cenários de falha.
