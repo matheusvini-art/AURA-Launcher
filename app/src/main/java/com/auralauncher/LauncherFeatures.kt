@@ -122,7 +122,7 @@ fun WidgetPickerDialog(
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    "\${provider.minWidth} × \${provider.minHeight} dp",
+                                    "${provider.minWidth} × ${provider.minHeight} dp",
                                     color = Color(0xFF91A4C2),
                                     fontSize = 9.sp
                                 )
@@ -177,8 +177,8 @@ fun WidgetWorkspace(
                 height = placement.heightDp
             }
             val resizeMode = controller.manager.getAppWidgetInfo(placement.widgetId)?.resizeMode ?: 0
-            val canResizeHorizontally = resizeMode and 1 != 0
-            val canResizeVertically = resizeMode and 2 != 0
+            val canResizeHorizontally = (resizeMode and 1) != 0
+            val canResizeVertically = (resizeMode and 2) != 0
             val canResize = canResizeHorizontally || canResizeVertically
             Card(
                 modifier = Modifier
@@ -245,7 +245,7 @@ fun WidgetWorkspace(
                                         ) { change, amount ->
                                             change.consume()
                                             if (canResizeHorizontally) {
-                                                width = (width + amount.x / density.density).coerceIn(180f, 440f)
+                                                width = (width + amount.x / density.density).coerceIn(180f, (availableWidth.value - x).coerceAtLeast(180f))
                                             }
                                             if (canResizeVertically) {
                                                 height = (height + amount.y / density.density).coerceIn(120f, 480f)
