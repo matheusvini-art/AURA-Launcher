@@ -874,7 +874,7 @@ private fun HomeScreen(
                     HomeCommandTile(
                         symbol = "✧",
                         title = "Favoritos",
-                        detail = "\${favorites.size} fixados",
+                        detail = "${favorites.size} fixados",
                         accent = accent,
                         modifier = Modifier.weight(1f),
                         onClick = onOpenFavorites
@@ -1047,7 +1047,7 @@ private fun HomeScreen(
                             Spacer(Modifier.width(11.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(folder.name, color = AuraWhite, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("\${folder.packages.size} aplicativos", color = AuraMuted, fontSize = 9.sp)
+                                Text("${folder.packages.size} aplicativos", color = AuraMuted, fontSize = 9.sp)
                             }
                             Text("›", color = accent, fontSize = 22.sp)
                         }
@@ -1226,7 +1226,7 @@ private fun DrawerScreen(
                     color = AuraMuted, fontSize = 9.sp
                 )
             }
-            Text("\${apps.size} RESULTADOS", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
+            Text("${apps.size} RESULTADOS", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
         }
         Spacer(Modifier.height(13.dp))
 
