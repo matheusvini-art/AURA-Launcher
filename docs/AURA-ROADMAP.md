@@ -1,50 +1,65 @@
-# AURA Launcher — roadmap 0.5.0
+# AURA Launcher — roadmap 0.5.1 beta
 
 ## Direção de produto
 
-**Futurista, completo, local-first e leve.** A interface deve parecer tecnológica sem virar uma coleção de efeitos. Priorizar hierarquia tipográfica, superfícies em camadas, animações curtas, feedback tátil/visual e acessibilidade. Não adicionar analytics, publicidade, conta ou tráfego de rede.
+**Futurista, completo, local-first e leve.** A interface deve parecer tecnológica sem virar uma coleção de efeitos. Priorizar hierarquia tipográfica, superfícies em camadas, animações curtas, feedback visual, acessibilidade e previsibilidade. Não adicionar analytics, publicidade, conta ou tráfego de rede do próprio AURA.
 
-## Diagnóstico da base 0.3.1
+## Diagnóstico da base
 
-- O app é um launcher nativo em Kotlin + Jetpack Compose (minSdk 26, targetSdk 35).
-- A maior parte da UI, estado e integração Android está concentrada em `MainActivity.kt`.
-- Favoritos, ocultos, recentes, pastas e preferências são persistidos em SharedPreferences.
+- Launcher nativo em Kotlin + Jetpack Compose, minSdk 26 e targetSdk 35.
+- A maior parte da UI e integração Android ainda está concentrada em MainActivity.kt; a próxima etapa técnica é modularizar sem reescrita total.
+- Favoritos, ocultos, recentes, pastas, widgets, atalhos e preferências são persistidos localmente.
 - A biblioteca consulta atividades com categoria LAUNCHER; recentes são os apps iniciados pelo próprio AURA, não um histórico completo do sistema.
-- Há dois temas, cinco cores, tamanho de ícone, colunas, rótulos e ordenação.
-- O manifesto não declara permissão de internet; o acesso a notificações é opcional e concedido explicitamente pelo usuário.
-- A suíte JVM e o CI executam testes antes da geração do APK.
+- O manifesto não declara INTERNET; o acesso a notificações é opcional e concedido explicitamente pelo usuário.
 
-## Arquitetura-alvo
+## Entregue na base 0.5.0
 
-Separar gradualmente em pacotes `home`, `apps`, `folders`, `widgets`, `gestures`, `icons`, `backup`, `settings`, `data` e `platform`. Evitar reescrita total: migrar uma funcionalidade por vez, preservando preferências e comportamento existentes.
+- Home e biblioteca com navegação e hierarquia visual próprias.
+- Widgets Android reais via AppWidgetHost/AppWidgetManager, com vínculo e configuração conduzidos pelo Android.
+- Posicionamento livre de widgets e atalhos; redimensionamento de widgets somente quando o provedor declara suporte.
+- Gestos de swipe e toque duplo configuráveis.
+- Pacotes de ícones ADW/Nova via appfilter.xml, com fallback para ícones originais.
+- NotificationListenerService opcional com badges por contagem de notificações por pacote.
+- Backup local schema v2 para preferências, pastas, favoritos, ocultos, gestos, posições/dimensões de widgets e atalhos. Schema v1 segue aceito.
 
-## Entregue nesta branch — 0.5.0 preview
+## Entregue na beta 0.5.1
 
-- Home e biblioteca redesenhadas com navegação e hierarquia visual novas.
-- **Widgets Android reais:** AppWidgetHost/AppWidgetManager lista provedores, pede vínculo ao Android, executa a configuração do provedor, adiciona e remove instâncias e mostra o AppWidgetHostView original.
-- **Posicionamento livre de widgets:** canvas com arraste; tamanho horizontal/vertical ajustável somente quando o provedor declara suporte. As dimensões são enviadas ao AppWidgetManager.
-- **Posicionamento livre de aplicativos:** segure um ícone na biblioteca, escolha “Adicionar à Home” e arraste o atalho na área livre. O modo EDITAR permite mover/remover atalhos e widgets.
-- IDs, posições e dimensões dos widgets e atalhos são persistidos localmente e incluídos no backup; IDs de widgets ausentes no aparelho são descartados na restauração.
-- **Gestos:** deslizar à esquerda abre a biblioteca; toque duplo no relógio abre o Studio; pressionar e segurar o relógio alterna o modo de edição. Os dois primeiros podem ser ativados/desativados nas configurações.
-- **Icon packs:** descoberta e mapeamento inicial ADW/Nova via appfilter.xml; apps sem recurso compatível usam o ícone original.
-- **Notificações:** NotificationListenerService opcional com badges por contagem de notificações por pacote. O usuário concede o acesso especial em Configurações do Android; o AURA não persiste o conteúdo.
-- **Backup local schema v2:** preferências, pastas, favoritos, ocultos, ícone selecionado, gestos, posições/dimensões dos widgets e posições dos atalhos. Schema v1 continua aceito.
+- **Papel de parede personalizado:** seletor visual do Android, cópia para armazenamento privado do app, prévia, troca e restauração do fundo original.
+- Validação de imagens: limite de 20 MB, verificação de dimensões/formato e decodificação com amostragem até 1920 px para reduzir uso de memória.
+- Processamento da importação de imagem fora da thread principal e cancelamento do escopo da Activity ao ser destruída.
+- Botão Voltar do Android retorna da tela de configurações ou biblioteca à Home.
+- Importador de backup lê em fluxo e interrompe a leitura ao exceder 512 KB, antes de manter um arquivo excessivo em memória.
+- Cache de ícones Compose é invalidado também quando o Drawable muda, permitindo que a troca de icon pack atualize a arte.
 
-## Próximas etapas / limitações conhecidas
+## Limitações conhecidas
 
-- Gestos adicionais como swipe up/down, ações livremente atribuíveis e personalização independente por gesto.
-- Suporte a camadas adaptativas, máscaras, icon packs com formatos proprietários e recursos fora do appfilter.xml comum.
-- Transferência de instâncias de widgets entre dispositivos: o Android controla os IDs e exige novo vínculo/consentimento no dispositivo de destino. O backup guarda layout/IDs para recuperação no mesmo aparelho; IDs não encontrados são ignorados.
-- Refinar o resize para cada comportamento específico de provedor e testar provedores que aceitam apenas um eixo ou que não aceitam redimensionamento.
-- Refatoração da MainActivity e teste físico em aparelhos Android de diferentes fabricantes/densidades. CI confirma compilação e testes JVM, mas não substitui o teste em dispositivos reais.
+- A imagem de papel de parede fica somente no dispositivo e ainda não é exportada junto ao backup.
+- Transferência de instâncias de widgets entre aparelhos requer novo vínculo/consentimento no destino; o Android controla os IDs.
+- Alguns icon packs usam formatos proprietários ou camadas/máscaras ainda não suportadas.
+- O redimensionamento precisa ser validado com provedores reais: alguns aceitam apenas um eixo ou não aceitam resize.
+- A atualização do inventário de apps e a renderização de ícones ainda precisam de profiling em dispositivos modestos.
+- A suíte JVM e a compilação CI não substituem testes funcionais em aparelhos físicos de diferentes fabricantes/densidades.
 
 ## Segurança e privacidade
 
-- Manter armazenamento local como padrão.
-- Não adicionar INTERNET, analytics, publicidade ou telemetria sem necessidade e aprovação.
-- Permissões especiais (notificações, widgets, administrador) explicadas e solicitadas apenas no momento em que o usuário ativa o recurso.
-- Não prometer proteção contra ataques: minimizar superfície de ataque e dependências.
+- Manter armazenamento local como padrão e não adicionar permissões amplas sem necessidade.
+- O AURA não pede permissão de armazenamento/fotos: usa o seletor de documentos do Android e guarda a imagem no diretório privado.
+- O acesso a notificações é especial, opcional e altamente sensível. Ele é usado para contar notificações por pacote; conteúdo de mensagens não é persistido. Testar concessão, revogação e comportamento sem acesso.
+- Widgets são código/conteúdo dos aplicativos provedores e devem ser tratados como integrações de terceiros.
+- Importação de backup deve permanecer limitada e validada; não confiar em nomes de pacotes, JSON ou IDs vindos do arquivo.
+- Não prometer proteção absoluta: reduzir superfície de ataque, manter dependências mínimas e testar cenários de falha.
 
-## Estado desta branch
+## Portão de qualidade antes de distribuir uma beta pública
 
-Esta é uma versão de prévia funcional. As integrações nativas acima estão conectadas ao fluxo do launcher e passam pela compilação/CI; ainda é necessário validar interação real com provedores de widgets e permissões em aparelhos físicos antes de uma publicação estável.
+1. CI verde: testDebugUnitTest e assembleDebug.
+2. Smoke test em Android 8, 10, 13, 14 e 15, incluindo aparelhos com skins diferentes.
+3. Testar escolher/trocar/remover wallpaper, imagens grandes, formato inválido, rotação de foto e pouco espaço em disco.
+4. Testar Home role, retorno do sistema, botão Voltar, rotação, processo encerrado e reinicialização.
+5. Testar widgets: permissão negada, cancelamento da configuração, provedor removido, resize e remoção.
+6. Testar acesso a notificações concedido e revogado; confirmar que contagens são locais e não existem dados de texto armazenados.
+7. Testar backup corrompido, vazio, grande, schema antigo e widget ID desconhecido.
+8. Fazer teste de consumo de memória/bateria com grande quantidade de apps, widgets e notificações.
+
+## Estado
+
+A beta 0.5.1 contém as melhorias de código listadas acima, mas só deve ser promovida a release estável depois do CI e dos testes físicos. Ainda não é apropriado anunciar compatibilidade universal ou segurança absoluta.
