@@ -1,6 +1,18 @@
 package com.auralauncher
 
 import android.app.role.RoleManager
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import android.provider.Settings.Secure
+import com.auralauncher.backup.LauncherBackup
+import com.auralauncher.widgets.AuraWidgetHostController
+import com.auralauncher.icons.IconPackManager
+import com.auralauncher.icons.InstalledIconPack
+import com.auralauncher.notifications.AuraNotificationListenerService
+import com.auralauncher.backup.LauncherBackupCodec
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -17,6 +29,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -87,6 +100,7 @@ import android.widget.Toast
 import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
+import androidx.compose.foundation.gestures.detectTapGestures
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -94,7 +108,9 @@ import java.util.Locale
 private data class LaunchableApp(
     val title: String,
     val packageName: String,
-    val icon: Drawable
+    val icon: Drawable,
+    val activityClassName: String = "",
+    val notificationCount: Int = 0
 )
 
 private data class AppFolder(
@@ -105,6 +121,106 @@ private data class AppFolder(
 class MainActivity : ComponentActivity() {
     private lateinit var appState: androidx.compose.runtime.MutableState<List<LaunchableApp>>
     private lateinit var defaultState: androidx.compose.runtime.MutableState<Boolean>
+    private lateinit var notificationAccessState: androidx.compose.runtime.MutableState<Boolean>
+    private lateinit var widgetHostController: AuraWidgetHostController
+    private lateinit var widgetPlacementsState: androidx.compose.runtime.MutableState<List<WidgetPlacement>>
+    private var pendingWidgetId: Int? = null
+
+    private val notificationRefreshReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (::appState.isInitialized) appState.value = loadLaunchableApps()
+        }
+    }
+
+    private val widgetBindLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val widgetId = pendingWidgetId ?: return@registerForActivityResult
+            if (result.resultCode == RESULT_OK) {
+                finishWidgetConfiguration(widgetId)
+            } else {
+                widgetHostController.deleteWidget(widgetId)
+                pendingWidgetId = null
+            }
+        }
+
+    private val widgetConfigLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val widgetId = pendingWidgetId ?: return@registerForActivityResult
+            if (result.resultCode == RESULT_OK) {
+                keepWidget(widgetId)
+            } else {
+                widgetHostController.deleteWidget(widgetId)
+                pendingWidgetId = null
+            }
+        }
+
+    private val backupExportLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+            if (uri != null) {
+                runCatching {
+                    val prefs = getSharedPreferences("aura_preferences", MODE_PRIVATE)
+                    val snapshot = LauncherBackup(
+                        favorites = prefs.getStringSet("favorites", emptySet()) ?: emptySet(),
+                        hidden = prefs.getStringSet("hidden", emptySet()) ?: emptySet(),
+                        recentPackages = readPackageList(prefs.getString("recent_order", "")),
+                        foldersJson = prefs.getString("folders", "[]") ?: "[]",
+                        iconSizeDp = prefs.getFloat("icon_size", 54f),
+                        columns = prefs.getInt("columns", 4),
+                        labelsEnabled = prefs.getBoolean("labels", true),
+                        accentIndex = prefs.getInt("accent", 0),
+                        themeMode = prefs.getInt("theme", 0),
+                        sortMode = prefs.getInt("sort_mode", 0),
+                        animationsEnabled = prefs.getBoolean("animations", true),
+                        iconPackPackage = prefs.getString("icon_pack", null),
+                        swipeLeftGestureEnabled = prefs.getBoolean("gesture_swipe_left", true),
+                        doubleTapSettingsEnabled = prefs.getBoolean("gesture_double_tap", true),
+                        widgetPlacementsJson = prefs.getString("widget_placements", "[]") ?: "[]",
+                        homeShortcutsJson = prefs.getString("home_shortcuts", "[]") ?: "[]"
+                    )
+                    val output = contentResolver.openOutputStream(uri)
+                        ?: error("Não foi possível abrir o arquivo de destino.")
+                    output.bufferedWriter(Charsets.UTF_8).use { it.write(LauncherBackupCodec.encode(snapshot)) }
+                }.onSuccess {
+                    Toast.makeText(this, "Backup AURA exportado.", Toast.LENGTH_LONG).show()
+                }.onFailure {
+                    Toast.makeText(this, "Falha ao exportar: ${it.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
+    private val backupImportLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                runCatching {
+                    val raw = contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                        ?: error("Não foi possível ler o arquivo.")
+                    val snapshot = LauncherBackupCodec.decode(raw)
+                    getSharedPreferences("aura_preferences", MODE_PRIVATE).edit()
+                        .putStringSet("favorites", snapshot.favorites)
+                        .putStringSet("hidden", snapshot.hidden)
+                        .putString("recent_order", snapshot.recentPackages.joinToString("|"))
+                        .putString("folders", snapshot.foldersJson)
+                        .putFloat("icon_size", snapshot.iconSizeDp)
+                        .putInt("columns", snapshot.columns)
+                        .putBoolean("labels", snapshot.labelsEnabled)
+                        .putInt("accent", snapshot.accentIndex)
+                        .putInt("theme", snapshot.themeMode)
+                        .putInt("sort_mode", snapshot.sortMode)
+                        .putBoolean("animations", snapshot.animationsEnabled)
+                        .putString("icon_pack", snapshot.iconPackPackage)
+                        .putBoolean("gesture_swipe_left", snapshot.swipeLeftGestureEnabled)
+                        .putBoolean("gesture_double_tap", snapshot.doubleTapSettingsEnabled)
+                        .putString("widget_placements", snapshot.widgetPlacementsJson)
+                        .putString("home_shortcuts", snapshot.homeShortcutsJson)
+                        .apply()
+                }.onSuccess {
+                    Toast.makeText(this, "Backup restaurado. Atualizando o AURA…", Toast.LENGTH_LONG).show()
+                    recreate()
+                }.onFailure {
+                    Toast.makeText(this, "Backup inválido: ${it.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
 
     private val homeRoleLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -124,9 +240,16 @@ class MainActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         window.navigationBarColor = android.graphics.Color.rgb(17, 16, 15)
 
+        widgetHostController = AuraWidgetHostController(this)
+        val prefs = getSharedPreferences("aura_preferences", MODE_PRIVATE)
+        widgetPlacementsState = mutableStateOf(
+            WidgetPlacementCodec.decode(prefs.getString("widget_placements", "[]"))
+                .filter { widgetHostController.manager.getAppWidgetInfo(it.widgetId) != null }
+        )
+        prefs.edit().putString("widget_placements", WidgetPlacementCodec.encode(widgetPlacementsState.value)).apply()
         appState = mutableStateOf(loadLaunchableApps())
         defaultState = mutableStateOf(isDefaultHome())
-        val prefs = getSharedPreferences("aura_preferences", MODE_PRIVATE)
+        notificationAccessState = mutableStateOf(isNotificationAccessEnabled())
 
         setContent {
             AuraTheme {
@@ -137,6 +260,7 @@ class MainActivity : ComponentActivity() {
                     initialHidden = prefs.getStringSet("hidden", emptySet()) ?: emptySet(),
                     initialRecents = readPackageList(prefs.getString("recent_order", "")),
                     initialFolders = decodeFolders(prefs.getString("folders", "[]")),
+                    initialHomeShortcuts = HomeShortcutCodec.decode(prefs.getString("home_shortcuts", "[]")),
                     iconSize = prefs.getFloat("icon_size", 54f),
                     columns = prefs.getInt("columns", 4),
                     labels = prefs.getBoolean("labels", true),
@@ -144,7 +268,26 @@ class MainActivity : ComponentActivity() {
                     theme = prefs.getInt("theme", 0),
                     sortMode = prefs.getInt("sort_mode", 0),
                     animations = prefs.getBoolean("animations", true),
+                    initialWidgetPlacements = widgetPlacementsState.value,
+                    widgetController = widgetHostController,
+                    widgetProviders = widgetHostController.manager.installedProviders.orEmpty(),
+                    installedIconPacks = IconPackManager.installedPacks(this),
+                    initialIconPack = prefs.getString("icon_pack", null),
+                    notificationAccessEnabled = notificationAccessState.value,
+                    swipeLeftEnabled = prefs.getBoolean("gesture_swipe_left", true),
+                    doubleTapSettingsEnabled = prefs.getBoolean("gesture_double_tap", true),
                     onSetDefault = ::requestDefaultLauncher,
+                    onAddWidget = ::beginWidgetSetup,
+                    onRemoveWidget = ::removeWidget,
+                    onMoveWidget = ::moveWidget,
+                    onSelectIconPack = ::saveIconPack,
+                    onOpenNotificationSettings = ::openNotificationAccessSettings,
+                    onSaveGestureSettings = { swipe, doubleTap ->
+                        prefs.edit().putBoolean("gesture_swipe_left", swipe)
+                            .putBoolean("gesture_double_tap", doubleTap).apply()
+                    },
+                    onExportBackup = { backupExportLauncher.launch("AURA-backup.aura") },
+                    onImportBackup = { backupImportLauncher.launch(arrayOf("application/octet-stream", "text/plain", "*/*")) },
                     onLaunch = { packageName ->
                         val recent = readPackageList(prefs.getString("recent_order", ""))
                             .filterNot { it == packageName }
@@ -171,6 +314,9 @@ class MainActivity : ComponentActivity() {
                     onSaveFolders = { value ->
                         prefs.edit().putString("folders", encodeFolders(value)).apply()
                     },
+                    onSaveHomeShortcuts = { value ->
+                        prefs.edit().putString("home_shortcuts", HomeShortcutCodec.encode(value)).apply()
+                    },
                     onSaveSettings = { size, count, showLabels, color, themeMode, order, motion ->
                         prefs.edit()
                             .putFloat("icon_size", size)
@@ -187,10 +333,110 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (::widgetHostController.isInitialized) runCatching { widgetHostController.startListening() }
+        val filter = IntentFilter(AuraNotificationListenerService.ACTION_COUNTS_CHANGED)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(notificationRefreshReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(notificationRefreshReceiver, filter)
+        }
+    }
+
+    override fun onStop() {
+        runCatching { unregisterReceiver(notificationRefreshReceiver) }
+        if (::widgetHostController.isInitialized) widgetHostController.stopListening()
+        super.onStop()
+    }
+
     override fun onResume() {
         super.onResume()
         if (::appState.isInitialized) appState.value = loadLaunchableApps()
         if (::defaultState.isInitialized) defaultState.value = isDefaultHome()
+        if (::notificationAccessState.isInitialized) notificationAccessState.value = isNotificationAccessEnabled()
+    }
+
+    private fun beginWidgetSetup(provider: AppWidgetProviderInfo) {
+        val widgetId = widgetHostController.allocateWidgetId()
+        pendingWidgetId = widgetId
+        val bound = runCatching {
+            widgetHostController.manager.bindAppWidgetIdIfAllowed(widgetId, provider.provider)
+        }.getOrDefault(false)
+        if (bound) {
+            finishWidgetConfiguration(widgetId)
+        } else {
+            val bindIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, provider.provider)
+            widgetBindLauncher.launch(bindIntent)
+        }
+    }
+
+    private fun finishWidgetConfiguration(widgetId: Int) {
+        val info = widgetHostController.manager.getAppWidgetInfo(widgetId)
+        val configure = info?.configure
+        if (configure == null) {
+            keepWidget(widgetId)
+            return
+        }
+        val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
+            .setComponent(configure)
+            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+        widgetConfigLauncher.launch(intent)
+    }
+
+    private fun keepWidget(widgetId: Int) {
+        val current = widgetPlacementsState.value
+        val next = current + WidgetPlacement(widgetId = widgetId, xDp = 8f, yDp = 8f + current.size * 190f)
+        widgetPlacementsState.value = next
+        getSharedPreferences("aura_preferences", MODE_PRIVATE).edit()
+            .putString("widget_placements", WidgetPlacementCodec.encode(next)).apply()
+        pendingWidgetId = null
+    }
+
+    private fun removeWidget(widgetId: Int) {
+        widgetHostController.deleteWidget(widgetId)
+        val next = widgetPlacementsState.value.filterNot { it.widgetId == widgetId }
+        widgetPlacementsState.value = next
+        getSharedPreferences("aura_preferences", MODE_PRIVATE).edit()
+            .putString("widget_placements", WidgetPlacementCodec.encode(next)).apply()
+    }
+
+    private fun moveWidget(placement: WidgetPlacement) {
+        val next = widgetPlacementsState.value.map {
+            if (it.widgetId == placement.widgetId) placement else it
+        }
+        widgetPlacementsState.value = next
+        getSharedPreferences("aura_preferences", MODE_PRIVATE).edit()
+            .putString("widget_placements", WidgetPlacementCodec.encode(next)).apply()
+        runCatching {
+            widgetHostController.manager.updateAppWidgetOptions(
+                placement.widgetId,
+                Bundle().apply {
+                    putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, placement.widthDp.toInt())
+                    putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, placement.widthDp.toInt())
+                    putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, placement.heightDp.toInt())
+                    putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, placement.heightDp.toInt())
+                }
+            )
+        }
+    }
+
+    private fun saveIconPack(packageName: String?) {
+        getSharedPreferences("aura_preferences", MODE_PRIVATE).edit().putString("icon_pack", packageName).apply()
+        if (::appState.isInitialized) appState.value = loadLaunchableApps()
+    }
+
+    private fun isNotificationAccessEnabled(): Boolean =
+        Secure.getString(contentResolver, "enabled_notification_listeners")?.contains(packageName) == true
+
+    private fun openNotificationAccessSettings() {
+        runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+            .onFailure {
+                Toast.makeText(this, "Não foi possível abrir as permissões de notificações.", Toast.LENGTH_LONG).show()
+            }
     }
 
     private fun isDefaultHome(): Boolean {
@@ -260,10 +506,22 @@ class MainActivity : ComponentActivity() {
         return packageManager.queryIntentActivities(launcherIntent, PackageManager.MATCH_ALL)
             .mapNotNull { info ->
                 val activityInfo = info.activityInfo ?: return@mapNotNull null
+                val prefs = getSharedPreferences("aura_preferences", MODE_PRIVATE)
+                val packageName = activityInfo.packageName
+                val iconPack = prefs.getString("icon_pack", null)
+                val counts = runCatching {
+                    JSONObject(prefs.getString(AuraNotificationListenerService.KEY_COUNTS, "{}") ?: "{}")
+                        .optInt(packageName, 0)
+                }.getOrDefault(0)
+                val appIcon = IconPackManager.loadDrawable(
+                    this, packageName, activityInfo.name, iconPack
+                ) ?: info.loadIcon(packageManager)
                 LaunchableApp(
                     title = info.loadLabel(packageManager).toString(),
-                    packageName = activityInfo.packageName,
-                    icon = info.loadIcon(packageManager)
+                    packageName = packageName,
+                    icon = appIcon,
+                    activityClassName = activityInfo.name,
+                    notificationCount = counts
                 )
             }
             .distinctBy { it.packageName }
@@ -303,17 +561,17 @@ private fun decodeFolders(raw: String?): List<AppFolder> {
     }
 }
 
-private val AuraBlack = Color(0xFF11100F)
-private val AuraPanel = Color(0xFF252321)
-private val AuraPanelRaised = Color(0xFF302C29)
-private val AuraMuted = Color(0xFFB4AAA2)
-private val AuraWhite = Color(0xFFF5F0EA)
+private val AuraBlack = Color(0xFF070B14)
+private val AuraPanel = Color(0xFF111A2B)
+private val AuraPanelRaised = Color(0xFF18243A)
+private val AuraMuted = Color(0xFF91A4C2)
+private val AuraWhite = Color(0xFFF2F7FF)
 private val AccentOptions = listOf(
-    Color(0xFFFF895F),
-    Color(0xFFE8CBB4),
-    Color(0xFFB9C8B5),
-    Color(0xFFD9B8C6),
-    Color(0xFFE7B96F)
+    Color(0xFF45E6FF),
+    Color(0xFF8B7CFF),
+    Color(0xFFB6FF5C),
+    Color(0xFFFF5EC4),
+    Color(0xFF4F9CFF)
 )
 
 @Composable
@@ -329,6 +587,7 @@ private fun AuraLauncher(
     initialHidden: Set<String>,
     initialRecents: List<String>,
     initialFolders: List<AppFolder>,
+    initialHomeShortcuts: List<HomeShortcutPlacement>,
     iconSize: Float,
     columns: Int,
     labels: Boolean,
@@ -336,19 +595,37 @@ private fun AuraLauncher(
     theme: Int,
     sortMode: Int,
     animations: Boolean,
+    initialWidgetPlacements: List<WidgetPlacement>,
+    widgetController: AuraWidgetHostController,
+    widgetProviders: List<AppWidgetProviderInfo>,
+    installedIconPacks: List<InstalledIconPack>,
+    initialIconPack: String?,
+    notificationAccessEnabled: Boolean,
+    swipeLeftEnabled: Boolean,
+    doubleTapSettingsEnabled: Boolean,
     onSetDefault: () -> Unit,
+    onAddWidget: (AppWidgetProviderInfo) -> Unit,
+    onRemoveWidget: (Int) -> Unit,
+    onMoveWidget: (WidgetPlacement) -> Unit,
+    onSelectIconPack: (String?) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
+    onSaveGestureSettings: (Boolean, Boolean) -> Unit,
+    onExportBackup: () -> Unit,
+    onImportBackup: () -> Unit,
     onLaunch: (String) -> Unit,
     onAppInfo: (String) -> Unit,
     onUninstall: (String) -> Unit,
     onSaveFavorites: (Set<String>) -> Unit,
     onSaveHidden: (Set<String>) -> Unit,
     onSaveFolders: (List<AppFolder>) -> Unit,
+    onSaveHomeShortcuts: (List<HomeShortcutPlacement>) -> Unit,
     onSaveSettings: (Float, Int, Boolean, Int, Int, Int, Boolean) -> Unit
 ) {
     var favorites by remember { mutableStateOf(initialFavorites) }
     var hidden by remember { mutableStateOf(initialHidden) }
     var recents by remember { mutableStateOf(initialRecents) }
     var folders by remember { mutableStateOf(initialFolders) }
+    var homeShortcuts by remember { mutableStateOf(initialHomeShortcuts) }
     var currentIconSize by remember { mutableStateOf(iconSize.coerceIn(42f, 72f)) }
     var currentColumns by remember { mutableStateOf(columns.coerceIn(3, 6)) }
     var showLabels by remember { mutableStateOf(labels) }
@@ -365,6 +642,20 @@ private fun AuraLauncher(
     var activeFolder by remember { mutableStateOf<AppFolder?>(null) }
     var showFolderBuilder by remember { mutableStateOf(false) }
     var clockNow by remember { mutableStateOf(System.currentTimeMillis()) }
+    var widgetPlacements by remember { mutableStateOf(initialWidgetPlacements) }
+    var showWidgetPicker by remember { mutableStateOf(false) }
+    var selectedIconPack by remember { mutableStateOf(initialIconPack) }
+    var swipeLeftGestureEnabled by remember { mutableStateOf(swipeLeftEnabled) }
+    var doubleTapGestureEnabled by remember { mutableStateOf(doubleTapSettingsEnabled) }
+    var editHomeMode by remember { mutableStateOf(false) }
+
+    LaunchedEffect(initialWidgetPlacements) { widgetPlacements = initialWidgetPlacements }
+    LaunchedEffect(initialHomeShortcuts) { homeShortcuts = initialHomeShortcuts }
+    LaunchedEffect(initialIconPack) { selectedIconPack = initialIconPack }
+    LaunchedEffect(swipeLeftEnabled, doubleTapSettingsEnabled) {
+        swipeLeftGestureEnabled = swipeLeftEnabled
+        doubleTapGestureEnabled = doubleTapSettingsEnabled
+    }
 
     LaunchedEffect(isDefaultLauncher) { isDefault = isDefaultLauncher }
     LaunchedEffect(Unit) {
@@ -378,7 +669,7 @@ private fun AuraLauncher(
     val background = if (themeMode == 1) {
         Brush.verticalGradient(listOf(Color.Black, Color(0xFF050505), Color.Black))
     } else {
-        Brush.verticalGradient(listOf(Color(0xFF3A3430), AuraBlack, Color(0xFF0C0B0A)))
+        Brush.verticalGradient(listOf(Color(0xFF132642), AuraBlack, Color(0xFF050810)))
     }
     val appMap = remember(apps) { apps.associateBy { it.packageName } }
     val favoriteApps = apps.filter { it.packageName in favorites && it.packageName !in hidden }
@@ -414,8 +705,23 @@ private fun AuraLauncher(
         if (app.packageName in hidden) {
             favorites = favorites - app.packageName
             onSaveFavorites(favorites)
+            homeShortcuts = homeShortcuts.filterNot { it.packageName == app.packageName }
+            onSaveHomeShortcuts(homeShortcuts)
         }
         onSaveHidden(hidden)
+    }
+
+    fun toggleHomeShortcut(app: LaunchableApp) {
+        homeShortcuts = if (homeShortcuts.any { it.packageName == app.packageName }) {
+            homeShortcuts.filterNot { it.packageName == app.packageName }
+        } else {
+            homeShortcuts + HomeShortcutPlacement(
+                packageName = app.packageName,
+                xDp = 12f,
+                yDp = 12f + homeShortcuts.size * 116f
+            )
+        }
+        onSaveHomeShortcuts(homeShortcuts)
     }
 
     fun launchApp(app: LaunchableApp) {
@@ -437,7 +743,18 @@ private fun AuraLauncher(
                     isDefault = isDefault,
                     hiddenCount = hidden.size,
                     folders = folders,
+                    widgetCount = widgetPlacements.size,
+                    installedIconPacks = installedIconPacks,
+                    selectedIconPack = selectedIconPack,
+                    notificationAccessEnabled = notificationAccessEnabled,
+                    swipeLeftEnabled = swipeLeftGestureEnabled,
+                    doubleTapSettingsEnabled = doubleTapGestureEnabled,
                     onBack = { showSettings = false },
+                    onAddWidget = { showWidgetPicker = true },
+                    onSelectIconPack = { selectedIconPack = it; onSelectIconPack(it) },
+                    onOpenNotificationSettings = onOpenNotificationSettings,
+                    onSwipeLeftGesture = { swipeLeftGestureEnabled = it },
+                    onDoubleTapGesture = { doubleTapGestureEnabled = it },
                     onIconSize = { currentIconSize = it },
                     onColumns = { currentColumns = it },
                     onLabels = { showLabels = it },
@@ -446,6 +763,8 @@ private fun AuraLauncher(
                     onSort = { currentSort = it },
                     onAnimations = { motionEnabled = it },
                     onSetDefault = onSetDefault,
+                    onExportBackup = onExportBackup,
+                    onImportBackup = onImportBackup,
                     onCreateFolder = { showFolderBuilder = true },
                     onOpenHidden = { drawerTab = 2; search = ""; showSettings = false; showDrawer = true },
                     onRemoveFolder = { folder ->
@@ -457,6 +776,7 @@ private fun AuraLauncher(
                             currentIconSize, currentColumns, showLabels, accentIndex,
                             themeMode, currentSort, motionEnabled
                         )
+                        onSaveGestureSettings(swipeLeftGestureEnabled, doubleTapGestureEnabled)
                         showSettings = false
                     }
                 )
@@ -482,6 +802,10 @@ private fun AuraLauncher(
                     favorites = favoriteApps,
                     recentApps = recentApps,
                     folders = folders,
+                    homeShortcutItems = apps.filterNot { it.packageName in hidden }.map {
+                        HomeShortcutItem(it.packageName, it.title, it.icon)
+                    },
+                    homeShortcuts = homeShortcuts,
                     iconSize = currentIconSize,
                     labels = showLabels,
                     accent = accentColor,
@@ -492,7 +816,35 @@ private fun AuraLauncher(
                     onOpenSettings = { showSettings = true },
                     onSetDefault = onSetDefault,
                     onLaunch = ::launchApp,
-                    onFolder = { activeFolder = it }
+                    onFolder = { activeFolder = it },
+                    widgetPlacements = widgetPlacements,
+                    widgetController = widgetController,
+                    editMode = editHomeMode,
+                    swipeLeftEnabled = swipeLeftGestureEnabled,
+                    doubleTapSettingsEnabled = doubleTapGestureEnabled,
+                    onToggleEditMode = { editHomeMode = !editHomeMode },
+                    onOpenWidgetPicker = { showWidgetPicker = true },
+                    onOpenLibraryForShortcut = { showDrawer = true; drawerTab = 0 },
+                    onMoveHomeShortcut = { placement ->
+                        homeShortcuts = homeShortcuts.map {
+                            if (it.packageName == placement.packageName) placement else it
+                        }
+                        onSaveHomeShortcuts(homeShortcuts)
+                    },
+                    onRemoveHomeShortcut = { packageName ->
+                        homeShortcuts = homeShortcuts.filterNot { it.packageName == packageName }
+                        onSaveHomeShortcuts(homeShortcuts)
+                    },
+                    onMoveWidget = { placement ->
+                        widgetPlacements = widgetPlacements.map {
+                            if (it.widgetId == placement.widgetId) placement else it
+                        }
+                        onMoveWidget(placement)
+                    },
+                    onRemoveWidget = { widgetId ->
+                        widgetPlacements = widgetPlacements.filterNot { it.widgetId == widgetId }
+                        onRemoveWidget(widgetId)
+                    }
                 )
             }
         }
@@ -503,7 +855,9 @@ private fun AuraLauncher(
             app = app,
             isFavorite = app.packageName in favorites,
             isHidden = app.packageName in hidden,
+            isOnHome = homeShortcuts.any { it.packageName == app.packageName },
             onDismiss = { selectedApp = null },
+            onAddToHome = { toggleHomeShortcut(app); selectedApp = null },
             onFavorite = { toggleFavorite(app); selectedApp = null },
             onHide = { toggleHidden(app); selectedApp = null },
             onInfo = { selectedApp = null; onAppInfo(app.packageName) },
@@ -518,6 +872,18 @@ private fun AuraLauncher(
             accent = accentColor,
             onDismiss = { activeFolder = null },
             onLaunch = { app -> activeFolder = null; launchApp(app) }
+        )
+    }
+
+    if (showWidgetPicker) {
+        WidgetPickerDialog(
+            providers = widgetProviders,
+            packageManager = androidx.compose.ui.platform.LocalContext.current.packageManager,
+            onDismiss = { showWidgetPicker = false },
+            onChoose = { provider ->
+                showWidgetPicker = false
+                onAddWidget(provider)
+            }
         )
     }
 
@@ -543,6 +909,8 @@ private fun HomeScreen(
     favorites: List<LaunchableApp>,
     recentApps: List<LaunchableApp>,
     folders: List<AppFolder>,
+    homeShortcutItems: List<HomeShortcutItem>,
+    homeShortcuts: List<HomeShortcutPlacement>,
     iconSize: Float,
     labels: Boolean,
     accent: Color,
@@ -553,319 +921,469 @@ private fun HomeScreen(
     onOpenSettings: () -> Unit,
     onSetDefault: () -> Unit,
     onLaunch: (LaunchableApp) -> Unit,
-    onFolder: (AppFolder) -> Unit
+    onFolder: (AppFolder) -> Unit,
+    widgetPlacements: List<WidgetPlacement>,
+    widgetController: AuraWidgetHostController,
+    editMode: Boolean,
+    swipeLeftEnabled: Boolean,
+    doubleTapSettingsEnabled: Boolean,
+    onToggleEditMode: () -> Unit,
+    onOpenWidgetPicker: () -> Unit,
+    onOpenLibraryForShortcut: () -> Unit,
+    onMoveHomeShortcut: (HomeShortcutPlacement) -> Unit,
+    onRemoveHomeShortcut: (String) -> Unit,
+    onMoveWidget: (WidgetPlacement) -> Unit,
+    onRemoveWidget: (Int) -> Unit
 ) {
     val hour = time.substringBefore(":").toIntOrNull() ?: 12
     val greeting = when (hour) {
-        in 5..11 -> "BOM DIA"
-        in 12..17 -> "BOA TARDE"
-        else -> "BOA NOITE"
+        in 5..11 -> "Bom dia"
+        in 12..17 -> "Boa tarde"
+        else -> "Boa noite"
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF3B3430), Color(0xFF171514), Color(0xFF0C0B0A))
+                Brush.radialGradient(
+                    colors = listOf(Color(0xFF173A58), Color(0xFF0A1424), Color(0xFF050812)),
+                    radius = 1050f
                 )
             )
-            .padding(horizontal = 22.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.SpaceBetween
     ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 72.dp, end = 8.dp)
+                .size(210.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        listOf(accent.copy(alpha = 0.10f), Color.Transparent)
+                    )
+                )
+        )
+
         Column(
             modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .pointerInput(Unit) {
-                    var dragX = 0f
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (dragX < -105f) onOpenDrawer()
-                            dragX = 0f
-                        },
-                        onDragCancel = { dragX = 0f }
-                    ) { change, amount ->
-                        dragX += amount
-                        change.consume()
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .pointerInput(swipeLeftEnabled) {
+                        var dragX = 0f
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                if (swipeLeftEnabled && dragX < -85f) onOpenDrawer()
+                                dragX = 0f
+                            },
+                            onDragCancel = { dragX = 0f }
+                        ) { change, amount ->
+                            dragX += amount
+                            change.consume()
+                        }
+                    }
+            ) {
+                // Header compacto: identidade e estado do launcher.
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 3.dp, bottom = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(43.dp)
+                            .clip(RoundedCornerShape(15.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(accent.copy(alpha = 0.28f), Color(0xFF172A42))
+                                )
+                            )
+                            .border(1.dp, accent.copy(alpha = 0.35f), RoundedCornerShape(15.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("A", color = AuraWhite, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    }
+                    Spacer(Modifier.width(11.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "AURA",
+                            color = AuraWhite,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 3.2.sp
+                        )
+                        Text(
+                            "PERSONAL INTERFACE  /  04",
+                            color = AuraMuted,
+                            fontSize = 8.sp,
+                            letterSpacing = 1.35.sp
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(Color(0xFF10283A))
+                            .border(1.dp, Color(0xFF4BE0A1).copy(alpha = 0.28f), CircleShape)
+                            .clickable { onSetDefault() }
+                            .padding(horizontal = 11.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            Modifier.size(6.dp).clip(CircleShape)
+                                .background(if (isDefault) Color(0xFF4BE0A1) else Color(0xFFFFC46B))
+                        )
+                        Spacer(Modifier.width(7.dp))
+                        Text(
+                            if (isDefault) "ONLINE" else "ATIVAR",
+                            color = if (isDefault) Color(0xFF9AF0C9) else Color(0xFFFFD18D),
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
                     }
                 }
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "A U R A",
-                        color = accent,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 5.sp
-                    )
-                    Text(
-                        "SEU ESPAÇO PESSOAL",
-                        color = AuraMuted.copy(alpha = 0.78f),
-                        fontSize = 9.sp,
-                        letterSpacing = 2.1.sp
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.linearGradient(
-                                listOf(accent.copy(alpha = 0.28f), Color.White.copy(alpha = 0.07f))
+
+                // Relógio principal com profundidade, órbitas e data.
+                Card(
+                    modifier = Modifier.fillMaxWidth().pointerInput(doubleTapSettingsEnabled) {
+                        detectTapGestures(
+                            onDoubleTap = { if (doubleTapSettingsEnabled) onOpenSettings() },
+                            onLongPress = { onToggleEditMode() }
+                        )
+                    },
+                    shape = RoundedCornerShape(30.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(Color(0xFF173B57), Color(0xFF12243C), Color(0xFF10172C))
+                                )
                             )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("A", color = AuraWhite, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
+                            .border(1.dp, Color.White.copy(alpha = 0.11f), RoundedCornerShape(30.dp))
+                            .padding(start = 21.dp, top = 20.dp, end = 18.dp, bottom = 20.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 0.dp)
+                                .size(142.dp)
+                                .clip(CircleShape)
+                                .border(1.dp, accent.copy(alpha = 0.18f), CircleShape)
+                                .background(Color.White.copy(alpha = 0.018f))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 20.dp)
+                                .size(102.dp)
+                                .clip(CircleShape)
+                                .border(1.dp, accent.copy(alpha = 0.30f), CircleShape)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 50.dp)
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.radialGradient(
+                                        listOf(accent.copy(alpha = 0.30f), accent.copy(alpha = 0.04f))
+                                    )
+                                )
+                                .border(1.dp, accent.copy(alpha = 0.46f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("✦", color = accent, fontSize = 22.sp)
+                        }
 
-            Spacer(Modifier.height(32.dp))
-            Text(
-                greeting,
-                color = accent,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.3.sp
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Text(
-                    time,
-                    color = AuraWhite,
-                    fontSize = 62.sp,
-                    fontWeight = FontWeight.Light,
-                    letterSpacing = (-3.5).sp,
-                    modifier = Modifier.weight(1f)
-                )
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                ) {
-                    Text(
-                        if (isDefault) "● ATIVO" else "○ NÃO PADRÃO",
-                        color = if (isDefault) Color(0xFF9BE4C0) else AuraMuted,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                    Text("TELA INICIAL", color = AuraMuted, fontSize = 8.sp, letterSpacing = 1.2.sp)
+                        Column(modifier = Modifier.fillMaxWidth(0.78f)) {
+                            Text(
+                                "TEMPO LOCAL  /  24H",
+                                color = accent,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.8.sp
+                            )
+                            Spacer(Modifier.height(9.dp))
+                            Text(
+                                greeting,
+                                color = Color(0xFFB8CBE0),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                time,
+                                color = Color.White,
+                                fontSize = 61.sp,
+                                fontWeight = FontWeight.Light,
+                                letterSpacing = (-4).sp,
+                                maxLines = 1
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                date.uppercase(Locale("pt", "BR")),
+                                color = Color(0xFFA5B9D1),
+                                fontSize = 8.sp,
+                                letterSpacing = 1.2.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Text(
+                            "AURA CORE",
+                            modifier = Modifier.align(Alignment.BottomEnd),
+                            color = Color.White.copy(alpha = 0.35f),
+                            fontSize = 7.sp,
+                            letterSpacing = 1.6.sp
+                        )
+                    }
                 }
-            }
-            Text(
-                date.replaceFirstChar { it.uppercase(Locale("pt", "BR")) },
-                color = AuraMuted,
-                fontSize = 13.sp
-            )
 
-            Spacer(Modifier.height(23.dp))
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onOpenDrawer() },
-                shape = RoundedCornerShape(19.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2E2926))
-            ) {
+                Spacer(Modifier.height(18.dp))
+
+                // Barra de busca funcional, integrada ao painel.
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color(0xFF111F33))
+                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
+                        .clickable { onOpenDrawer() }
+                        .padding(horizontal = 15.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("⌕", color = accent, fontSize = 25.sp)
-                    Spacer(Modifier.width(11.dp))
+                    Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Buscar aplicativos", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                        Text("Encontre o que precisa rapidamente", color = AuraMuted, fontSize = 10.sp)
+                        Text("Pesquisar no dispositivo", color = AuraWhite, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text("Aplicativos, ferramentas e atalhos", color = AuraMuted, fontSize = 9.sp)
                     }
-                    Text("↗", color = AuraMuted, fontSize = 17.sp)
+                    Text("↗", color = accent, fontSize = 18.sp)
                 }
-            }
 
-            Spacer(Modifier.height(20.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.linearGradient(
-                                listOf(Color(0xFF57463C), Color(0xFF342A25), Color(0xFF211C19))
-                            )
-                        )
-                        .padding(19.dp)
-                ) {
+                Spacer(Modifier.height(22.dp))
+
+                // Ações rápidas em blocos independentes.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("CENTRAL DE COMANDO", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                        Text("Acesso imediato ao seu espaço", color = AuraMuted, fontSize = 9.sp)
+                    }
+                    Text("3 ATALHOS", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                }
+                Spacer(Modifier.height(11.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    HomeCommandTile(
+                        symbol = "▦",
+                        title = "Aplicativos",
+                        detail = "Abrir biblioteca",
+                        accent = accent,
+                        modifier = Modifier.weight(1f),
+                        onClick = onOpenDrawer
+                    )
+                    HomeCommandTile(
+                        symbol = "✧",
+                        title = "Favoritos",
+                        detail = "${favorites.size} fixados",
+                        accent = accent,
+                        modifier = Modifier.weight(1f),
+                        onClick = onOpenFavorites
+                    )
+                    HomeCommandTile(
+                        symbol = "◈",
+                        title = "Personalizar",
+                        detail = "Seu visual",
+                        accent = accent,
+                        modifier = Modifier.weight(1f),
+                        onClick = onOpenSettings
+                    )
+                }
+
+                Spacer(Modifier.height(22.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("ÁREA LIVRE", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                        Text("Atalhos posicionados por você", color = AuraMuted, fontSize = 9.sp)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = onToggleEditMode) {
+                            Text(if (editMode) "CONCLUIR" else "EDITAR", color = if (editMode) Color(0xFF9BE4C0) else accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+                        TextButton(onClick = onOpenLibraryForShortcut) {
+                            Text("+ APP", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                if (homeShortcuts.isEmpty()) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                            .background(Color(0xFF111F33))
+                            .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(18.dp))
+                            .clickable { onOpenLibraryForShortcut() }
+                            .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Box(Modifier.size(39.dp).clip(RoundedCornerShape(12.dp)).background(accent.copy(alpha = 0.13f)), contentAlignment = Alignment.Center) {
+                            Text("＋", color = accent, fontSize = 20.sp)
+                        }
+                        Spacer(Modifier.width(11.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "AURA / VISÃO GERAL",
-                                color = accent,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.7.sp
-                            )
-                            Spacer(Modifier.height(7.dp))
-                            Text(
-                                "Seu celular.\nDo seu jeito.",
-                                color = AuraWhite,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                lineHeight = 27.sp
-                            )
-                            Spacer(Modifier.height(7.dp))
-                            Text(
-                                "${favorites.size} favoritos  ·  ${recentApps.size} recentes  ·  ${folders.size} pastas",
-                                color = Color(0xFFD2C5B9),
-                                fontSize = 10.sp
-                            )
+                            Text("Fixe aplicativos na Home", color = AuraWhite, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Abra a biblioteca, segure um app e escolha Adicionar à Home.", color = AuraMuted, fontSize = 9.sp)
                         }
-                        Box(
-                            modifier = Modifier
-                                .size(76.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.07f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(54.dp)
-                                    .clip(CircleShape)
-                                    .background(accent.copy(alpha = 0.16f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("✦", color = accent, fontSize = 34.sp)
+                        Text("›", color = accent, fontSize = 22.sp)
+                    }
+                } else {
+                    HomeShortcutWorkspace(
+                        items = homeShortcutItems,
+                        placements = homeShortcuts,
+                        accent = accent,
+                        editable = editMode,
+                        onLaunch = { packageName ->
+                            homeShortcutItems.firstOrNull { it.packageName == packageName }?.let { item ->
+                                onLaunch(LaunchableApp(item.title, item.packageName, item.icon))
                             }
+                        },
+                        onMove = onMoveHomeShortcut,
+                        onRemove = onRemoveHomeShortcut
+                    )
+                }
+
+                Spacer(Modifier.height(22.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("WIDGETS", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                        Text(
+                            if (widgetPlacements.isEmpty()) "Traga informações para sua Home" else "${widgetPlacements.size} widget(s) no seu espaço",
+                            color = AuraMuted,
+                            fontSize = 9.sp
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = onToggleEditMode) {
+                            Text(if (editMode) "CONCLUIR" else "EDITAR", color = if (editMode) Color(0xFF9BE4C0) else accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+                        TextButton(onClick = onOpenWidgetPicker) {
+                            Text("+ ADICIONAR", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
-            }
-
-            Spacer(Modifier.height(25.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Acesso rápido", color = AuraWhite, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Seus aplicativos favoritos", color = AuraMuted, fontSize = 10.sp)
+                if (editMode) {
+                    Text(
+                        "MODO DE EDIÇÃO ATIVO · ARRASTE A BARRA SUPERIOR DOS WIDGETS",
+                        color = accent,
+                        fontSize = 8.sp,
+                        letterSpacing = 0.7.sp,
+                        modifier = Modifier.padding(top = 5.dp, bottom = 8.dp)
+                    )
                 }
-                Text(
-                    "EDITAR",
-                    color = accent,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                    modifier = Modifier.clickable { onOpenFavorites() }.padding(7.dp)
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            if (favorites.isEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable { onOpenDrawer() },
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = AuraPanel)
-                ) {
+                if (widgetPlacements.isEmpty()) {
                     Row(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color(0xFF111F33))
+                            .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(18.dp))
+                            .clickable { onOpenWidgetPicker() }
+                            .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
-                            modifier = Modifier.size(42.dp).clip(RoundedCornerShape(13.dp))
-                                .background(accent.copy(alpha = 0.12f)),
+                            Modifier.size(39.dp).clip(RoundedCornerShape(12.dp)).background(accent.copy(alpha = 0.13f)),
                             contentAlignment = Alignment.Center
-                        ) {
-                            Text("+", color = accent, fontSize = 25.sp)
+                        ) { Text("▦", color = accent, fontSize = 20.sp) }
+                        Spacer(Modifier.width(11.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Adicionar widget do Android", color = AuraWhite, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Calendário, clima, música e outros", color = AuraMuted, fontSize = 9.sp)
                         }
+                        Text("›", color = accent, fontSize = 22.sp)
+                    }
+                } else {
+                    WidgetWorkspace(
+                        placements = widgetPlacements,
+                        controller = widgetController,
+                        accent = accent,
+                        editable = editMode,
+                        onMove = onMoveWidget,
+                        onRemove = onRemoveWidget
+                    )
+                }
+
+                Spacer(Modifier.height(25.dp))
+
+                // Favoritos deixam de ser duas linhas de cartões genéricos e viram dock de ícones.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("SEU DOCK", color = AuraWhite, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                        Text("O que você usa todos os dias", color = AuraMuted, fontSize = 9.sp)
+                    }
+                    Text(
+                        "EDITAR  ↗",
+                        color = accent,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp,
+                        modifier = Modifier.clickable { onOpenFavorites() }.padding(7.dp)
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                if (favorites.isEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color(0xFF111F33))
+                            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
+                            .clickable { onOpenDrawer() }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            Modifier.size(43.dp).clip(RoundedCornerShape(14.dp)).background(accent.copy(alpha = 0.13f)),
+                            contentAlignment = Alignment.Center
+                        ) { Text("+", color = accent, fontSize = 25.sp) }
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Monte seu espaço", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text("Segure um app na biblioteca para favoritar.", color = AuraMuted, fontSize = 10.sp)
+                            Text("Monte seu dock", color = AuraWhite, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Segure um app na biblioteca para fixá-lo aqui.", color = AuraMuted, fontSize = 9.sp)
                         }
-                        Text("›", color = AuraMuted, fontSize = 22.sp)
+                        Text("›", color = accent, fontSize = 23.sp)
                     }
-                }
-            } else {
-                favorites.take(4).chunked(2).forEach { pair ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        pair.forEach { app ->
-                            Card(
-                                modifier = Modifier.weight(1f).clickable { onLaunch(app) },
-                                shape = RoundedCornerShape(18.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF292421))
+                } else {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(13.dp)) {
+                        items(favorites.take(8), key = { it.packageName }) { app ->
+                            Column(
+                                modifier = Modifier.width(68.dp).clip(RoundedCornerShape(17.dp))
+                                    .clickable { onLaunch(app) }.padding(vertical = 5.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 13.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                Box(
+                                    modifier = Modifier.size(61.dp).clip(RoundedCornerShape(20.dp))
+                                        .background(
+                                            Brush.linearGradient(
+                                                listOf(Color(0xFF243B55), Color(0xFF142239))
+                                            )
+                                        )
+                                        .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(20.dp)),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Image(
-                                        bitmap = remember(app.packageName) { app.icon.toImageBitmap() },
-                                        contentDescription = app.title,
-                                        modifier = Modifier.size(39.dp).clip(RoundedCornerShape(12.dp))
-                                    )
-                                    Spacer(Modifier.width(9.dp))
-                                    Text(
-                                        app.title,
-                                        color = AuraWhite,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                    AppIconArtwork(app, iconSize.coerceIn(42f, 54f))
                                 }
-                            }
-                        }
-                        if (pair.size == 1) Spacer(Modifier.weight(1f))
-                    }
-                    Spacer(Modifier.height(9.dp))
-                }
-            }
-
-            AnimatedVisibility(
-                visible = recentApps.isNotEmpty(),
-                enter = if (animations) fadeIn() else EnterTransition.None,
-                exit = if (animations) fadeOut() else ExitTransition.None
-            ) {
-                Column {
-                    Spacer(Modifier.height(14.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Continue de onde parou", color = AuraWhite, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Aplicativos abertos recentemente", color = AuraMuted, fontSize = 10.sp)
-                        }
-                        Text("RECENTES", color = accent, fontSize = 8.sp, letterSpacing = 1.sp)
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(recentApps, key = { it.packageName }) { app ->
-                            Card(
-                                modifier = Modifier.width(82.dp).clickable { onLaunch(app) },
-                                colors = CardDefaults.cardColors(containerColor = AuraPanel),
-                                shape = RoundedCornerShape(17.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 13.dp, horizontal = 6.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Image(
-                                        bitmap = remember(app.packageName) { app.icon.toImageBitmap() },
-                                        contentDescription = app.title,
-                                        modifier = Modifier.size(39.dp).clip(RoundedCornerShape(12.dp))
-                                    )
+                                if (labels) {
                                     Spacer(Modifier.height(7.dp))
                                     Text(
                                         app.title,
-                                        color = AuraWhite,
+                                        color = Color(0xFFDCE8F6),
                                         fontSize = 9.sp,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -875,81 +1393,185 @@ private fun HomeScreen(
                         }
                     }
                 }
-            }
 
-            if (folders.isNotEmpty()) {
-                Spacer(Modifier.height(22.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Suas coleções", color = AuraWhite, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Aplicativos organizados por você", color = AuraMuted, fontSize = 10.sp)
-                    }
-                    Text(
-                        "GERENCIAR",
-                        color = accent,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { onOpenSettings() }.padding(6.dp)
-                    )
-                }
-                Spacer(Modifier.height(11.dp))
-                folders.forEach { folder ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable { onFolder(folder) },
-                        colors = CardDefaults.cardColors(containerColor = AuraPanel),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 15.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier.size(37.dp).clip(RoundedCornerShape(11.dp))
-                                    .background(accent.copy(alpha = 0.12f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("▦", color = accent, fontSize = 18.sp)
-                            }
-                            Spacer(Modifier.width(11.dp))
+                AnimatedVisibility(
+                    visible = recentApps.isNotEmpty(),
+                    enter = if (animations) fadeIn() else EnterTransition.None,
+                    exit = if (animations) fadeOut() else ExitTransition.None
+                ) {
+                    Column {
+                        Spacer(Modifier.height(25.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(folder.name, color = AuraWhite, fontWeight = FontWeight.Medium, fontSize = 12.sp)
-                                Text("${folder.packages.size} aplicativos", color = AuraMuted, fontSize = 10.sp)
+                                Text("RETOMAR", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                                Text("Acessados recentemente", color = AuraMuted, fontSize = 9.sp)
                             }
-                            Text("›", color = AuraMuted, fontSize = 21.sp)
+                            Text("RECENTES", color = accent, fontSize = 8.sp, letterSpacing = 1.sp)
+                        }
+                        Spacer(Modifier.height(11.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                            items(recentApps, key = { it.packageName }) { app ->
+                                Row(
+                                    modifier = Modifier.width(145.dp)
+                                        .clip(RoundedCornerShape(17.dp))
+                                        .background(Color(0xFF111F33))
+                                        .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(17.dp))
+                                        .clickable { onLaunch(app) }
+                                        .padding(horizontal = 11.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    AppIconArtwork(app, 35f, RoundedCornerShape(11.dp))
+                                    Spacer(Modifier.width(9.dp))
+                                    Text(
+                                        app.title,
+                                        color = AuraWhite,
+                                        fontSize = 10.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
                         }
                     }
                 }
-            }
-            Spacer(Modifier.height(22.dp))
-        }
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2E2926)),
-            shape = RoundedCornerShape(23.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                DockAction("▦", "Biblioteca", accent, onOpenDrawer)
-                DockAction("✦", "Favoritos", accent, onOpenFavorites)
-                DockAction("◈", "Personalizar", accent, onOpenSettings)
+                if (folders.isNotEmpty()) {
+                    Spacer(Modifier.height(25.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("COLEÇÕES", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                            Text("Sua organização pessoal", color = AuraMuted, fontSize = 9.sp)
+                        }
+                        Text(
+                            "GERENCIAR ↗",
+                            color = accent,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable { onOpenSettings() }.padding(6.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    folders.forEach { folder ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                                .clip(RoundedCornerShape(17.dp))
+                                .background(Color(0xFF111F33))
+                                .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(17.dp))
+                                .clickable { onFolder(folder) }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(accent.copy(alpha = 0.13f)),
+                                contentAlignment = Alignment.Center
+                            ) { Text("▦", color = accent, fontSize = 19.sp) }
+                            Spacer(Modifier.width(11.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(folder.name, color = AuraWhite, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("${folder.packages.size} aplicativos", color = AuraMuted, fontSize = 9.sp)
+                            }
+                            Text("›", color = accent, fontSize = 22.sp)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(22.dp))
             }
+
+            // Dock flutuante persistente.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xE615263B)),
+                shape = RoundedCornerShape(25.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 7.dp, vertical = 9.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    DockAction("▦", "Apps", accent, onOpenDrawer)
+                    DockAction("✧", "Fixados", accent, onOpenFavorites)
+                    DockAction("◈", "Studio", accent, onOpenSettings)
+                }
+            }
+            Spacer(Modifier.height(5.dp))
+            Text(
+                if (isDefault) "AURA  /  HOME SYSTEM ACTIVE" else "AURA  /  TOQUE PARA DEFINIR COMO INÍCIO",
+                color = AuraMuted.copy(alpha = 0.62f),
+                fontSize = 7.sp,
+                letterSpacing = 1.1.sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+                    .clickable { onSetDefault() }
+                    .padding(4.dp)
+            )
         }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            if (isDefault) "AURA é sua tela inicial" else "Toque aqui para definir o AURA como principal",
-            color = AuraMuted,
-            fontSize = 10.sp,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-                .clickable { onSetDefault() }
-                .padding(4.dp)
-        )
     }
 }
 
+@Composable
+private fun AppIconArtwork(
+    app: LaunchableApp,
+    sizeDp: Float,
+    shape: RoundedCornerShape = RoundedCornerShape(15.dp)
+) {
+    val bitmap = remember(app.packageName) { app.icon.toImageBitmap() }
+    Box(modifier = Modifier.size(sizeDp.dp)) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = app.title,
+            modifier = Modifier.fillMaxSize().clip(shape)
+        )
+        if (app.notificationCount > 0) {
+            Box(
+                modifier = Modifier.align(Alignment.TopEnd)
+                    .size(17.dp).clip(CircleShape)
+                    .background(Color(0xFFFF526B))
+                    .border(1.dp, AuraBlack, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    if (app.notificationCount > 9) "9+" else app.notificationCount.toString(),
+                    color = Color.White,
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeCommandTile(
+    symbol: String,
+    title: String,
+    detail: String,
+    accent: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(19.dp))
+            .background(Color(0xFF14263D))
+            .border(1.dp, Color.White.copy(alpha = 0.075f), RoundedCornerShape(19.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Box(
+            Modifier.size(34.dp).clip(RoundedCornerShape(11.dp))
+                .background(accent.copy(alpha = 0.13f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(symbol, color = accent, fontSize = 19.sp)
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(title, color = AuraWhite, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(detail, color = AuraMuted, fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DrawerScreen(
     apps: List<LaunchableApp>,
@@ -968,167 +1590,166 @@ private fun DrawerScreen(
 ) {
     Column(
         modifier = Modifier.fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF38302C), AuraBlack, Color(0xFF0C0B0A))))
-            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .background(Brush.verticalGradient(listOf(Color(0xFF0E2138), Color(0xFF081321), Color(0xFF050812))))
+            .padding(horizontal = 19.dp, vertical = 12.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 3.dp, bottom = 17.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(
-                modifier = Modifier.size(40.dp).clip(CircleShape)
-                    .background(AuraPanel).clickable { onBack() },
+                modifier = Modifier.size(43.dp).clip(RoundedCornerShape(15.dp))
+                    .background(Color(0xFF162A43))
+                    .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(15.dp))
+                    .clickable { onBack() },
                 contentAlignment = Alignment.Center
-            ) {
-                Text("‹", color = AuraWhite, fontSize = 27.sp)
-            }
+            ) { Text("‹", color = AuraWhite, fontSize = 28.sp) }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text("Biblioteca", color = AuraWhite, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
-                Text("Seus aplicativos em um só lugar", color = AuraMuted, fontSize = 10.sp)
+                Text("APP SPACE", color = AuraWhite, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.7.sp)
+                Text("Sua biblioteca pessoal", color = AuraMuted, fontSize = 9.sp)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text("AURA", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-                Text("$totalApps APPS", color = AuraMuted, fontSize = 8.sp, letterSpacing = 1.sp)
+                Text(totalApps.toString().padStart(2, '0'), color = accent, fontSize = 24.sp, fontWeight = FontWeight.Light)
+                Text("INSTALADOS", color = AuraMuted, fontSize = 7.sp, letterSpacing = 1.sp)
             }
         }
 
-        Spacer(Modifier.height(19.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF302B28)),
-            shape = RoundedCornerShape(18.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .clip(RoundedCornerShape(17.dp))
+                .background(Color(0xFF14263D))
+                .border(1.dp, Color.White.copy(alpha = 0.085f), RoundedCornerShape(17.dp))
+                .padding(start = 14.dp, end = 10.dp, top = 2.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.padding(start = 14.dp, end = 9.dp, top = 4.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("⌕", color = accent, fontSize = 24.sp)
-                TextField(
-                    value = search,
-                    onValueChange = onSearch,
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Buscar aplicativo...", color = AuraMuted) },
-                    singleLine = true,
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedTextColor = AuraWhite,
-                        unfocusedTextColor = AuraWhite,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        cursorColor = accent
-                    )
+            Text("⌕", color = accent, fontSize = 25.sp)
+            TextField(
+                value = search,
+                onValueChange = onSearch,
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Pesquisar aplicativos...", color = AuraMuted, fontSize = 12.sp) },
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedTextColor = AuraWhite,
+                    unfocusedTextColor = AuraWhite,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    cursorColor = accent
                 )
-                if (search.isNotBlank()) {
-                    Text(
-                        "×",
-                        color = AuraMuted,
-                        fontSize = 20.sp,
-                        modifier = Modifier.clickable { onSearch("") }.padding(horizontal = 8.dp)
-                    )
-                }
+            )
+            if (search.isNotBlank()) {
+                Box(
+                    Modifier.size(30.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.07f))
+                        .clickable { onSearch("") },
+                    contentAlignment = Alignment.Center
+                ) { Text("×", color = AuraWhite, fontSize = 18.sp) }
             }
         }
 
-        Spacer(Modifier.height(15.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1D1A18)),
-            shape = RoundedCornerShape(15.dp)
+        Spacer(Modifier.height(14.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp))
+                .background(Color(0xFF101E31))
+                .border(1.dp, Color.White.copy(alpha = 0.055f), RoundedCornerShape(15.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(5.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                DrawerTab("Todos", tab == 0, accent, Modifier.weight(1f)) { onTab(0) }
-                DrawerTab("Favoritos", tab == 1, accent, Modifier.weight(1f)) { onTab(1) }
-                DrawerTab("Ocultos", tab == 2, accent, Modifier.weight(1f)) { onTab(2) }
-            }
+            DrawerTab("Todos", tab == 0, accent, Modifier.weight(1f)) { onTab(0) }
+            DrawerTab("Favoritos", tab == 1, accent, Modifier.weight(1f)) { onTab(1) }
+            DrawerTab("Ocultos", tab == 2, accent, Modifier.weight(1f)) { onTab(2) }
         }
 
         Spacer(Modifier.height(18.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.Bottom) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    when (tab) {
-                        1 -> "Seus favoritos"
-                        2 -> "Aplicativos ocultos"
-                        else -> "Todos os aplicativos"
-                    },
-                    color = AuraWhite,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
+                    when (tab) { 1 -> "FIXADOS"; 2 -> "ÁREA PRIVADA"; else -> "TODOS OS APPS" },
+                    color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.25.sp
                 )
                 Text(
-                    "${apps.size} ${if (apps.size == 1) "aplicativo" else "aplicativos"}",
-                    color = AuraMuted,
-                    fontSize = 10.sp
+                    when {
+                        search.isNotBlank() -> "Resultados para “$search”"
+                        tab == 1 -> "Seus acessos favoritos"
+                        tab == 2 -> "Aplicativos ocultos"
+                        else -> "Encontre e abra qualquer aplicativo"
+                    },
+                    color = AuraMuted, fontSize = 9.sp
                 )
             }
-            Text("TOQUE PARA ABRIR", color = AuraMuted.copy(alpha = 0.72f), fontSize = 8.sp, letterSpacing = 1.sp)
+            Text("${apps.size} RESULTADOS", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
         }
-        Spacer(Modifier.height(11.dp))
+        Spacer(Modifier.height(13.dp))
 
         if (apps.isEmpty()) {
-            Box(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = AuraPanel)
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp))
+                        .background(Color(0xFF111F33))
+                        .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(25.dp))
+                        .padding(25.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(22.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("⌕", color = accent, fontSize = 36.sp)
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            if (search.isNotBlank()) "Nada encontrado" else "Esta seção está vazia",
-                            color = AuraWhite,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            if (search.isNotBlank()) "Experimente outro nome ou termo." else "Os aplicativos aparecerão aqui quando estiverem disponíveis.",
-                            color = AuraMuted,
-                            fontSize = 11.sp
-                        )
+                    Box(Modifier.size(60.dp).clip(RoundedCornerShape(20.dp)).background(accent.copy(alpha = 0.13f)), contentAlignment = Alignment.Center) {
+                        Text("⌕", color = accent, fontSize = 33.sp)
                     }
+                    Spacer(Modifier.height(13.dp))
+                    Text(
+                        if (search.isNotBlank()) "Nenhum resultado" else "Nada por aqui ainda",
+                        color = AuraWhite, fontSize = 16.sp, fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        if (search.isNotBlank()) "Tente outro nome ou limpe a pesquisa." else "Os aplicativos desta seção aparecerão aqui.",
+                        color = AuraMuted, fontSize = 10.sp
+                    )
                 }
             }
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns.coerceIn(3, 6)),
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(bottom = 22.dp),
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                contentPadding = PaddingValues(top = 3.dp, bottom = 22.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(15.dp)
             ) {
                 items(apps, key = { it.packageName }) { app ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(17.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF292421))
+                    Column(
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                            .combinedClickable(
+                                onClick = { if (tab == 2) onAppMenu(app) else onLaunch(app) },
+                                onLongClick = { onAppMenu(app) }
+                            )
+                            .padding(vertical = 7.dp, horizontal = 2.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        AppIcon(
-                            app = app,
-                            iconSize = iconSize,
-                            labels = labels,
-                            onClick = { if (tab == 2) onAppMenu(app) else onLaunch(app) },
-                            onLongClick = { onAppMenu(app) }
-                        )
+                        Box(
+                            modifier = Modifier.size((iconSize + 12f).coerceIn(54f, 82f).dp)
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(Brush.linearGradient(listOf(Color(0xFF223B58), Color(0xFF122238))))
+                                .border(1.dp, Color.White.copy(alpha = 0.075f), RoundedCornerShape(22.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AppIconArtwork(app, iconSize.coerceIn(38f, 62f))
+                        }
+                        if (labels) {
+                            Spacer(Modifier.height(7.dp))
+                            Text(app.title, color = Color(0xFFE5EDF7), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                 }
             }
         }
 
-        Spacer(Modifier.height(7.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
-            "Segure um aplicativo para favoritar, ocultar ou gerenciar.",
-            color = AuraMuted.copy(alpha = 0.72f),
-            fontSize = 9.sp,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
+            "SEGURE UM ÍCONE PARA MAIS OPÇÕES",
+            color = AuraMuted.copy(alpha = 0.60f),
+            fontSize = 7.sp,
+            letterSpacing = 1.1.sp,
+            modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 3.dp)
         )
     }
 }
@@ -1169,7 +1790,18 @@ private fun SettingsScreen(
     isDefault: Boolean,
     hiddenCount: Int,
     folders: List<AppFolder>,
+    widgetCount: Int,
+    installedIconPacks: List<InstalledIconPack>,
+    selectedIconPack: String?,
+    notificationAccessEnabled: Boolean,
+    swipeLeftEnabled: Boolean,
+    doubleTapSettingsEnabled: Boolean,
     onBack: () -> Unit,
+    onAddWidget: () -> Unit,
+    onSelectIconPack: (String?) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
+    onSwipeLeftGesture: (Boolean) -> Unit,
+    onDoubleTapGesture: (Boolean) -> Unit,
     onIconSize: (Float) -> Unit,
     onColumns: (Int) -> Unit,
     onLabels: (Boolean) -> Unit,
@@ -1178,6 +1810,8 @@ private fun SettingsScreen(
     onSort: (Int) -> Unit,
     onAnimations: (Boolean) -> Unit,
     onSetDefault: () -> Unit,
+    onExportBackup: () -> Unit,
+    onImportBackup: () -> Unit,
     onCreateFolder: () -> Unit,
     onOpenHidden: () -> Unit,
     onRemoveFolder: (AppFolder) -> Unit,
@@ -1186,7 +1820,7 @@ private fun SettingsScreen(
     val accent = AccentOptions[accentIndex]
     Column(
         modifier = Modifier.fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF38302C), AuraBlack)))
+            .background(Brush.verticalGradient(listOf(Color(0xFF142C4C), AuraBlack)))
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 21.dp, vertical = 16.dp)
     ) {
@@ -1227,7 +1861,7 @@ private fun SettingsScreen(
                     )
                     Text(
                         if (isDefault) "O AURA está cuidando da sua tela inicial." else "Escolha o AURA como tela inicial do Android.",
-                        color = Color(0xFFD2C5B9),
+                        color = Color(0xFFB9CBE5),
                         fontSize = 10.sp
                     )
                 }
@@ -1266,7 +1900,7 @@ private fun SettingsScreen(
         SettingCard {
             Text("Tema", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                ThemePreview("Graphite", themeMode == 0, Color(0xFF292421), accent) { onTheme(0) }
+                ThemePreview("Graphite", themeMode == 0, Color(0xFF142239), accent) { onTheme(0) }
                 ThemePreview("AMOLED", themeMode == 1, Color(0xFF050505), accent) { onTheme(1) }
             }
             Divider(color = Color.White.copy(alpha = 0.08f))
@@ -1326,11 +1960,125 @@ private fun SettingsScreen(
             }
         }
 
+        SettingsHeading("WIDGETS DO ANDROID", accent)
+        SettingCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Área de widgets", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text("$widgetCount widget(s) adicionados à Home", color = AuraMuted, fontSize = 10.sp)
+                }
+                Text("ANDROID", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            }
+            Text(
+                "Use os widgets originais dos aplicativos instalados. Depois de adicionar, arraste a barra superior para posicionar cada um na tela.",
+                color = AuraMuted,
+                fontSize = 10.sp,
+                lineHeight = 15.sp
+            )
+            Button(
+                onClick = onAddWidget,
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = AuraBlack),
+                shape = RoundedCornerShape(14.dp)
+            ) { Text("Adicionar widget", fontWeight = FontWeight.Bold) }
+        }
+
+        SettingsHeading("PACOTES DE ÍCONES", accent)
+        SettingCard {
+            Text("Escolha o estilo dos aplicativos", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            ChoiceChip("Ícones originais", selectedIconPack == null, accent) { onSelectIconPack(null) }
+            if (installedIconPacks.isEmpty()) {
+                Text(
+                    "Nenhum pacote compatível encontrado. Instale um icon pack que ofereça appfilter.xml e suporte ADW/Nova.",
+                    color = AuraMuted,
+                    fontSize = 10.sp,
+                    lineHeight = 15.sp
+                )
+            } else {
+                installedIconPacks.forEach { pack ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(pack.label, color = AuraWhite, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                        ChoiceChip("Aplicar", selectedIconPack == pack.packageName, accent) {
+                            onSelectIconPack(pack.packageName)
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingsHeading("INDICADORES DE NOTIFICAÇÃO", accent)
+        SettingCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Acesso às notificações", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (notificationAccessEnabled) "Permissão concedida" else "Permissão ainda não concedida",
+                        color = if (notificationAccessEnabled) Color(0xFF9BE4C0) else AuraMuted,
+                        fontSize = 10.sp
+                    )
+                }
+                Box(
+                    Modifier.size(9.dp).clip(CircleShape)
+                        .background(if (notificationAccessEnabled) Color(0xFF61E6A7) else Color(0xFFFFC46B))
+                )
+            }
+            Text(
+                "O AURA lê somente a quantidade de notificações por aplicativo para mostrar os indicadores. O conteúdo das mensagens não é salvo.",
+                color = AuraMuted,
+                fontSize = 10.sp,
+                lineHeight = 15.sp
+            )
+            Button(
+                onClick = onOpenNotificationSettings,
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = AuraBlack),
+                shape = RoundedCornerShape(14.dp)
+            ) { Text(if (notificationAccessEnabled) "Gerenciar permissão" else "Ativar indicadores", fontWeight = FontWeight.Bold) }
+        }
+
+        SettingsHeading("GESTOS", accent)
+        SettingCard {
+            SettingSwitch(
+                "Deslizar para a esquerda",
+                "Abrir a biblioteca a partir da tela inicial",
+                swipeLeftEnabled,
+                onSwipeLeftGesture
+            )
+            Divider(color = Color.White.copy(alpha = 0.08f))
+            SettingSwitch(
+                "Toque duplo no relógio",
+                "Abrir o Studio de personalização",
+                doubleTapSettingsEnabled,
+                onDoubleTapGesture
+            )
+            Text(
+                "Pressione e segure o painel do relógio para alternar o modo de edição dos widgets.",
+                color = AuraMuted,
+                fontSize = 10.sp,
+                lineHeight = 14.sp
+            )
+        }
+
+        SettingsHeading("BACKUP E RESTAURAÇÃO", accent)
+        SettingCard {
+            Text("Seus ajustes, suas regras", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text("Exporte favoritos, ocultos, pastas, aparência e preferências para um arquivo local. A restauração substitui essas configurações.", color = AuraMuted, fontSize = 10.sp, lineHeight = 15.sp)
+            Button(
+                onClick = onExportBackup,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = AuraBlack),
+                shape = RoundedCornerShape(14.dp)
+            ) { Text("Exportar backup", fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onImportBackup, modifier = Modifier.fillMaxWidth()) {
+                Text("Restaurar de um arquivo", color = accent, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
         SettingsHeading("SISTEMA ANDROID", accent)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF292421))
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF142239))
         ) {
             Column(modifier = Modifier.padding(17.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1395,7 +2143,7 @@ private fun ThemePreview(
 ) {
     Column(
         modifier = Modifier.width(120.dp).clip(RoundedCornerShape(15.dp))
-            .background(Color(0xFF3A302B)).clickable { onClick() }.padding(8.dp)
+            .background(Color(0xFF182B45)).clickable { onClick() }.padding(8.dp)
     ) {
         Box(
             modifier = Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(10.dp))
@@ -1455,7 +2203,7 @@ private fun ChoiceChip(label: String, selected: Boolean, accent: Color, onClick:
         fontWeight = FontWeight.SemiBold,
         fontSize = 11.sp,
         modifier = Modifier.clip(RoundedCornerShape(12.dp))
-            .background(if (selected) accent else Color(0xFF39322E))
+            .background(if (selected) accent else Color(0xFF1D3452))
             .clickable { onClick() }
             .padding(horizontal = 15.dp, vertical = 9.dp)
     )
@@ -1489,11 +2237,28 @@ private fun AppIcon(
             .padding(vertical = 3.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(
-            bitmap = bitmap,
-            contentDescription = app.title,
-            modifier = Modifier.size(iconSize.dp).clip(RoundedCornerShape(17.dp))
-        )
+        Box(modifier = Modifier.size(iconSize.dp)) {
+            Image(
+                bitmap = bitmap,
+                contentDescription = app.title,
+                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(17.dp))
+            )
+            if (app.notificationCount > 0) {
+                Box(
+                    modifier = Modifier.align(Alignment.TopEnd).size(17.dp)
+                        .clip(CircleShape).background(Color(0xFFFF526B))
+                        .border(1.dp, AuraBlack, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        if (app.notificationCount > 9) "9+" else app.notificationCount.toString(),
+                        color = Color.White,
+                        fontSize = 7.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
         if (labels) {
             Spacer(Modifier.height(6.dp))
             Text(
@@ -1512,7 +2277,9 @@ private fun AppActionsDialog(
     app: LaunchableApp,
     isFavorite: Boolean,
     isHidden: Boolean,
+    isOnHome: Boolean,
     onDismiss: () -> Unit,
+    onAddToHome: () -> Unit,
     onFavorite: () -> Unit,
     onHide: () -> Unit,
     onInfo: () -> Unit,
@@ -1529,6 +2296,9 @@ private fun AppActionsDialog(
             Column(horizontalAlignment = Alignment.End) {
                 TextButton(onClick = onFavorite) {
                     Text(if (isFavorite) "Remover dos favoritos" else "Adicionar aos favoritos")
+                }
+                TextButton(onClick = onAddToHome) {
+                    Text(if (isOnHome) "Remover da Home" else "Adicionar à Home")
                 }
                 TextButton(onClick = onHide) {
                     Text(if (isHidden) "Mostrar na gaveta" else "Ocultar aplicativo")
@@ -1621,11 +2391,7 @@ private fun FolderContentsDialog(
                         modifier = Modifier.fillMaxWidth().clickable { onLaunch(app) }.padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Image(
-                            bitmap = remember(app.packageName) { app.icon.toImageBitmap() },
-                            contentDescription = app.title,
-                            modifier = Modifier.size(34.dp).clip(RoundedCornerShape(9.dp))
-                        )
+                        AppIconArtwork(app, 34f, RoundedCornerShape(9.dp))
                         Spacer(Modifier.width(12.dp))
                         Text(app.title, color = AuraWhite, modifier = Modifier.weight(1f))
                         Text("Abrir", color = accent, fontSize = 11.sp)
