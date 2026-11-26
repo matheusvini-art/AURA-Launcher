@@ -1,6 +1,8 @@
 package com.auralauncher
 
 import android.app.role.RoleManager
+import com.auralauncher.backup.LauncherBackup
+import com.auralauncher.backup.LauncherBackupCodec
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -106,6 +108,64 @@ class MainActivity : ComponentActivity() {
     private lateinit var appState: androidx.compose.runtime.MutableState<List<LaunchableApp>>
     private lateinit var defaultState: androidx.compose.runtime.MutableState<Boolean>
 
+    private val backupExportLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+            if (uri != null) {
+                runCatching {
+                    val prefs = getSharedPreferences("aura_preferences", MODE_PRIVATE)
+                    val snapshot = LauncherBackup(
+                        favorites = prefs.getStringSet("favorites", emptySet()) ?: emptySet(),
+                        hidden = prefs.getStringSet("hidden", emptySet()) ?: emptySet(),
+                        recentPackages = readPackageList(prefs.getString("recent_order", "")),
+                        foldersJson = prefs.getString("folders", "[]") ?: "[]",
+                        iconSizeDp = prefs.getFloat("icon_size", 54f),
+                        columns = prefs.getInt("columns", 4),
+                        labelsEnabled = prefs.getBoolean("labels", true),
+                        accentIndex = prefs.getInt("accent", 0),
+                        themeMode = prefs.getInt("theme", 0),
+                        sortMode = prefs.getInt("sort_mode", 0),
+                        animationsEnabled = prefs.getBoolean("animations", true)
+                    )
+                    val output = contentResolver.openOutputStream(uri)
+                        ?: error("Não foi possível abrir o arquivo de destino.")
+                    output.bufferedWriter(Charsets.UTF_8).use { it.write(LauncherBackupCodec.encode(snapshot)) }
+                }.onSuccess {
+                    Toast.makeText(this, "Backup AURA exportado.", Toast.LENGTH_LONG).show()
+                }.onFailure {
+                    Toast.makeText(this, "Falha ao exportar: ${it.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
+    private val backupImportLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                runCatching {
+                    val raw = contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                        ?: error("Não foi possível ler o arquivo.")
+                    val snapshot = LauncherBackupCodec.decode(raw)
+                    getSharedPreferences("aura_preferences", MODE_PRIVATE).edit()
+                        .putStringSet("favorites", snapshot.favorites)
+                        .putStringSet("hidden", snapshot.hidden)
+                        .putString("recent_order", snapshot.recentPackages.joinToString("|"))
+                        .putString("folders", snapshot.foldersJson)
+                        .putFloat("icon_size", snapshot.iconSizeDp)
+                        .putInt("columns", snapshot.columns)
+                        .putBoolean("labels", snapshot.labelsEnabled)
+                        .putInt("accent", snapshot.accentIndex)
+                        .putInt("theme", snapshot.themeMode)
+                        .putInt("sort_mode", snapshot.sortMode)
+                        .putBoolean("animations", snapshot.animationsEnabled)
+                        .apply()
+                }.onSuccess {
+                    Toast.makeText(this, "Backup restaurado. Atualizando o AURA…", Toast.LENGTH_LONG).show()
+                    recreate()
+                }.onFailure {
+                    Toast.makeText(this, "Backup inválido: ${it.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
     private val homeRoleLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             val selected = isDefaultHome()
@@ -145,6 +205,8 @@ class MainActivity : ComponentActivity() {
                     sortMode = prefs.getInt("sort_mode", 0),
                     animations = prefs.getBoolean("animations", true),
                     onSetDefault = ::requestDefaultLauncher,
+                    onExportBackup = { backupExportLauncher.launch("AURA-backup.aura") },
+                    onImportBackup = { backupImportLauncher.launch(arrayOf("application/octet-stream", "text/plain", "*/*")) },
                     onLaunch = { packageName ->
                         val recent = readPackageList(prefs.getString("recent_order", ""))
                             .filterNot { it == packageName }
@@ -337,6 +399,8 @@ private fun AuraLauncher(
     sortMode: Int,
     animations: Boolean,
     onSetDefault: () -> Unit,
+    onExportBackup: () -> Unit,
+    onImportBackup: () -> Unit,
     onLaunch: (String) -> Unit,
     onAppInfo: (String) -> Unit,
     onUninstall: (String) -> Unit,
@@ -446,6 +510,8 @@ private fun AuraLauncher(
                     onSort = { currentSort = it },
                     onAnimations = { motionEnabled = it },
                     onSetDefault = onSetDefault,
+                    onExportBackup = onExportBackup,
+                    onImportBackup = onImportBackup,
                     onCreateFolder = { showFolderBuilder = true },
                     onOpenHidden = { drawerTab = 2; search = ""; showSettings = false; showDrawer = true },
                     onRemoveFolder = { folder ->
@@ -1178,6 +1244,8 @@ private fun SettingsScreen(
     onSort: (Int) -> Unit,
     onAnimations: (Boolean) -> Unit,
     onSetDefault: () -> Unit,
+    onExportBackup: () -> Unit,
+    onImportBackup: () -> Unit,
     onCreateFolder: () -> Unit,
     onOpenHidden: () -> Unit,
     onRemoveFolder: (AppFolder) -> Unit,
@@ -1323,6 +1391,21 @@ private fun SettingsScreen(
                     Text("$hiddenCount aplicativos fora da biblioteca principal", color = AuraMuted, fontSize = 10.sp)
                 }
                 TextButton(onClick = onOpenHidden) { Text("Gerenciar", color = accent) }
+            }
+        }
+
+        SettingsHeading("BACKUP E RESTAURAÇÃO", accent)
+        SettingCard {
+            Text("Seus ajustes, suas regras", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text("Exporte favoritos, ocultos, pastas, aparência e preferências para um arquivo local. A restauração substitui essas configurações.", color = AuraMuted, fontSize = 10.sp, lineHeight = 15.sp)
+            Button(
+                onClick = onExportBackup,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = AuraBlack),
+                shape = RoundedCornerShape(14.dp)
+            ) { Text("Exportar backup", fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onImportBackup, modifier = Modifier.fillMaxWidth()) {
+                Text("Restaurar de um arquivo", color = accent, fontWeight = FontWeight.SemiBold)
             }
         }
 
