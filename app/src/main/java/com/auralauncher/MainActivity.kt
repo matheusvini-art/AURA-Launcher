@@ -293,6 +293,12 @@ class MainActivity : ComponentActivity() {
         }
         appState = mutableStateOf(loadLaunchableApps())
         val savedWallpaper = File(filesDir, WALLPAPER_FILE_NAME)
+        val previousWallpaper = File(filesDir, "$WALLPAPER_FILE_NAME.bak")
+        if (!savedWallpaper.isFile && previousWallpaper.isFile) {
+            previousWallpaper.renameTo(savedWallpaper)
+        } else {
+            previousWallpaper.delete()
+        }
         wallpaperState = mutableStateOf(savedWallpaper.takeIf { it.isFile }?.absolutePath)
 
         setContent {
