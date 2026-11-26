@@ -174,7 +174,8 @@ class MainActivity : ComponentActivity() {
                         iconPackPackage = prefs.getString("icon_pack", null),
                         swipeLeftGestureEnabled = prefs.getBoolean("gesture_swipe_left", true),
                         doubleTapSettingsEnabled = prefs.getBoolean("gesture_double_tap", true),
-                        widgetPlacementsJson = prefs.getString("widget_placements", "[]") ?: "[]"
+                        widgetPlacementsJson = prefs.getString("widget_placements", "[]") ?: "[]",
+                        homeShortcutsJson = prefs.getString("home_shortcuts", "[]") ?: "[]"
                     )
                     val output = contentResolver.openOutputStream(uri)
                         ?: error("Não foi possível abrir o arquivo de destino.")
@@ -210,6 +211,7 @@ class MainActivity : ComponentActivity() {
                         .putBoolean("gesture_swipe_left", snapshot.swipeLeftGestureEnabled)
                         .putBoolean("gesture_double_tap", snapshot.doubleTapSettingsEnabled)
                         .putString("widget_placements", snapshot.widgetPlacementsJson)
+                        .putString("home_shortcuts", snapshot.homeShortcutsJson)
                         .apply()
                 }.onSuccess {
                     Toast.makeText(this, "Backup restaurado. Atualizando o AURA…", Toast.LENGTH_LONG).show()
@@ -258,6 +260,7 @@ class MainActivity : ComponentActivity() {
                     initialHidden = prefs.getStringSet("hidden", emptySet()) ?: emptySet(),
                     initialRecents = readPackageList(prefs.getString("recent_order", "")),
                     initialFolders = decodeFolders(prefs.getString("folders", "[]")),
+                    initialHomeShortcuts = HomeShortcutCodec.decode(prefs.getString("home_shortcuts", "[]")),
                     iconSize = prefs.getFloat("icon_size", 54f),
                     columns = prefs.getInt("columns", 4),
                     labels = prefs.getBoolean("labels", true),
@@ -310,6 +313,9 @@ class MainActivity : ComponentActivity() {
                     },
                     onSaveFolders = { value ->
                         prefs.edit().putString("folders", encodeFolders(value)).apply()
+                    },
+                    onSaveHomeShortcuts = { value ->
+                        prefs.edit().putString("home_shortcuts", HomeShortcutCodec.encode(value)).apply()
                     },
                     onSaveSettings = { size, count, showLabels, color, themeMode, order, motion ->
                         prefs.edit()
@@ -581,6 +587,7 @@ private fun AuraLauncher(
     initialHidden: Set<String>,
     initialRecents: List<String>,
     initialFolders: List<AppFolder>,
+    initialHomeShortcuts: List<HomeShortcutPlacement>,
     iconSize: Float,
     columns: Int,
     labels: Boolean,
@@ -611,12 +618,14 @@ private fun AuraLauncher(
     onSaveFavorites: (Set<String>) -> Unit,
     onSaveHidden: (Set<String>) -> Unit,
     onSaveFolders: (List<AppFolder>) -> Unit,
+    onSaveHomeShortcuts: (List<HomeShortcutPlacement>) -> Unit,
     onSaveSettings: (Float, Int, Boolean, Int, Int, Int, Boolean) -> Unit
 ) {
     var favorites by remember { mutableStateOf(initialFavorites) }
     var hidden by remember { mutableStateOf(initialHidden) }
     var recents by remember { mutableStateOf(initialRecents) }
     var folders by remember { mutableStateOf(initialFolders) }
+    var homeShortcuts by remember { mutableStateOf(initialHomeShortcuts) }
     var currentIconSize by remember { mutableStateOf(iconSize.coerceIn(42f, 72f)) }
     var currentColumns by remember { mutableStateOf(columns.coerceIn(3, 6)) }
     var showLabels by remember { mutableStateOf(labels) }
@@ -641,6 +650,7 @@ private fun AuraLauncher(
     var editHomeMode by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialWidgetPlacements) { widgetPlacements = initialWidgetPlacements }
+    LaunchedEffect(initialHomeShortcuts) { homeShortcuts = initialHomeShortcuts }
     LaunchedEffect(initialIconPack) { selectedIconPack = initialIconPack }
     LaunchedEffect(swipeLeftEnabled, doubleTapSettingsEnabled) {
         swipeLeftGestureEnabled = swipeLeftEnabled
@@ -695,8 +705,23 @@ private fun AuraLauncher(
         if (app.packageName in hidden) {
             favorites = favorites - app.packageName
             onSaveFavorites(favorites)
+            homeShortcuts = homeShortcuts.filterNot { it.packageName == app.packageName }
+            onSaveHomeShortcuts(homeShortcuts)
         }
         onSaveHidden(hidden)
+    }
+
+    fun toggleHomeShortcut(app: LaunchableApp) {
+        homeShortcuts = if (homeShortcuts.any { it.packageName == app.packageName }) {
+            homeShortcuts.filterNot { it.packageName == app.packageName }
+        } else {
+            homeShortcuts + HomeShortcutPlacement(
+                packageName = app.packageName,
+                xDp = 12f,
+                yDp = 12f + homeShortcuts.size * 116f
+            )
+        }
+        onSaveHomeShortcuts(homeShortcuts)
     }
 
     fun launchApp(app: LaunchableApp) {
@@ -777,6 +802,10 @@ private fun AuraLauncher(
                     favorites = favoriteApps,
                     recentApps = recentApps,
                     folders = folders,
+                    homeShortcutItems = apps.filterNot { it.packageName in hidden }.map {
+                        HomeShortcutItem(it.packageName, it.title, it.icon)
+                    },
+                    homeShortcuts = homeShortcuts,
                     iconSize = currentIconSize,
                     labels = showLabels,
                     accent = accentColor,
@@ -795,6 +824,17 @@ private fun AuraLauncher(
                     doubleTapSettingsEnabled = doubleTapGestureEnabled,
                     onToggleEditMode = { editHomeMode = !editHomeMode },
                     onOpenWidgetPicker = { showWidgetPicker = true },
+                    onOpenLibraryForShortcut = { showDrawer = true; drawerTab = 0 },
+                    onMoveHomeShortcut = { placement ->
+                        homeShortcuts = homeShortcuts.map {
+                            if (it.packageName == placement.packageName) placement else it
+                        }
+                        onSaveHomeShortcuts(homeShortcuts)
+                    },
+                    onRemoveHomeShortcut = { packageName ->
+                        homeShortcuts = homeShortcuts.filterNot { it.packageName == packageName }
+                        onSaveHomeShortcuts(homeShortcuts)
+                    },
                     onMoveWidget = { placement ->
                         widgetPlacements = widgetPlacements.map {
                             if (it.widgetId == placement.widgetId) placement else it
@@ -815,7 +855,9 @@ private fun AuraLauncher(
             app = app,
             isFavorite = app.packageName in favorites,
             isHidden = app.packageName in hidden,
+            isOnHome = homeShortcuts.any { it.packageName == app.packageName },
             onDismiss = { selectedApp = null },
+            onAddToHome = { toggleHomeShortcut(app); selectedApp = null },
             onFavorite = { toggleFavorite(app); selectedApp = null },
             onHide = { toggleHidden(app); selectedApp = null },
             onInfo = { selectedApp = null; onAppInfo(app.packageName) },
