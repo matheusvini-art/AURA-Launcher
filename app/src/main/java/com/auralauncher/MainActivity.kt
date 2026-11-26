@@ -408,8 +408,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startInitialAppScan() = refreshLaunchableApps()
-
     override fun onStart() {
         super.onStart()
         if (::widgetHostController.isInitialized) runCatching { widgetHostController.startListening() }
