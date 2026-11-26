@@ -286,9 +286,12 @@ class MainActivity : ComponentActivity() {
                 .filter { widgetHostController.manager.getAppWidgetInfo(it.widgetId) != null }
         )
         prefs.edit().putString("widget_placements", WidgetPlacementCodec.encode(widgetPlacementsState.value)).apply()
-        appState = mutableStateOf(loadLaunchableApps())
         defaultState = mutableStateOf(isDefaultHome())
         notificationAccessState = mutableStateOf(isNotificationAccessEnabled())
+        if (!notificationAccessState.value) {
+            prefs.edit().remove(AuraNotificationListenerService.KEY_COUNTS).apply()
+        }
+        appState = mutableStateOf(loadLaunchableApps())
         val savedWallpaper = File(filesDir, WALLPAPER_FILE_NAME)
         wallpaperState = mutableStateOf(savedWallpaper.takeIf { it.isFile }?.absolutePath)
 
@@ -401,9 +404,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::appState.isInitialized) appState.value = loadLaunchableApps()
         if (::defaultState.isInitialized) defaultState.value = isDefaultHome()
-        if (::notificationAccessState.isInitialized) notificationAccessState.value = isNotificationAccessEnabled()
+        if (::notificationAccessState.isInitialized) {
+            val hasNotificationAccess = isNotificationAccessEnabled()
+            notificationAccessState.value = hasNotificationAccess
+            if (!hasNotificationAccess) {
+                getSharedPreferences("aura_preferences", MODE_PRIVATE).edit()
+                    .remove(AuraNotificationListenerService.KEY_COUNTS)
+                    .apply()
+            }
+        }
+        if (::appState.isInitialized) appState.value = loadLaunchableApps()
     }
 
     override fun onDestroy() {
