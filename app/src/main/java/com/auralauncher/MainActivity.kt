@@ -1142,8 +1142,15 @@ private fun HomeScreen(
     }
 
     val wallpaperBitmap = rememberWallpaperBitmap(wallpaperPath)
+    val pageBackground = Color(0xFFF0ECFA)
+    val ink = Color(0xFF302A43)
+    val muted = Color(0xFF817990)
+    val surface = Color(0xFFFFFFFF)
+    val softSurface = Color(0xFFF8F5FF)
+    val outline = Color(0xFFE6DFF2)
+    val brand = Color(0xFF7658D8)
     Box(
-        modifier = Modifier.fillMaxSize().background(Color(0xFF050812))
+        modifier = Modifier.fillMaxSize().background(pageBackground)
     ) {
         if (wallpaperBitmap != null) {
             Image(
@@ -1156,7 +1163,7 @@ private fun HomeScreen(
             Box(
                 modifier = Modifier.fillMaxSize().background(
                     Brush.radialGradient(
-                        colors = listOf(Color(0xFF173A58), Color(0xFF0A1424), Color(0xFF050812)),
+                        colors = listOf(Color(0xFFE9E2FA), Color(0xFFF7F4FD), pageBackground),
                         radius = 1050f
                     )
                 )
@@ -1165,7 +1172,7 @@ private fun HomeScreen(
         Box(
             modifier = Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
-                    colors = listOf(Color(0x66050812), Color(0x99050812), Color(0xE6050812))
+                    colors = listOf(Color(0x18FFFFFF), Color(0x55F2EEFA), Color(0x99F0ECFA))
                 )
             )
         )
@@ -1217,26 +1224,26 @@ private fun HomeScreen(
                             .clip(RoundedCornerShape(15.dp))
                             .background(
                                 Brush.linearGradient(
-                                    listOf(accent.copy(alpha = 0.28f), Color(0xFF172A42))
+                                    listOf(brand.copy(alpha = 0.22f), Color(0xFFE7DFFA))
                                 )
                             )
-                            .border(1.dp, accent.copy(alpha = 0.35f), RoundedCornerShape(15.dp)),
+                            .border(1.dp, brand.copy(alpha = 0.30f), RoundedCornerShape(15.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("A", color = AuraWhite, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                        Text("A", color = Color(0xFF6249BA), fontSize = 22.sp, fontWeight = FontWeight.Black)
                     }
                     Spacer(Modifier.width(11.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "AURA",
-                            color = AuraWhite,
+                            color = ink,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 3.2.sp
                         )
                         Text(
                             "PERSONAL INTERFACE  /  04",
-                            color = AuraMuted,
+                            color = muted,
                             fontSize = 8.sp,
                             letterSpacing = 1.35.sp
                         )
@@ -1244,20 +1251,20 @@ private fun HomeScreen(
                     Row(
                         modifier = Modifier
                             .clip(CircleShape)
-                            .background(Color(0xFF10283A))
-                            .border(1.dp, Color(0xFF4BE0A1).copy(alpha = 0.28f), CircleShape)
+                            .background(surface)
+                            .border(1.dp, Color(0xFFBFE8D7), CircleShape)
                             .clickable { onSetDefault() }
                             .padding(horizontal = 11.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             Modifier.size(6.dp).clip(CircleShape)
-                                .background(if (isDefault) Color(0xFF4BE0A1) else Color(0xFFFFC46B))
+                                .background(if (isDefault) Color(0xFF31956F) else Color(0xFFB98235))
                         )
                         Spacer(Modifier.width(7.dp))
                         Text(
                             if (isDefault) "ONLINE" else "ATIVAR",
-                            color = if (isDefault) Color(0xFF9AF0C9) else Color(0xFFFFD18D),
+                            color = if (isDefault) Color(0xFF287D5D) else Color(0xFF9B6B2F),
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
@@ -1281,10 +1288,10 @@ private fun HomeScreen(
                             .fillMaxWidth()
                             .background(
                                 Brush.linearGradient(
-                                    listOf(Color(0xFF173B57), Color(0xFF12243C), Color(0xFF10172C))
+                                    listOf(Color(0xFF8A73E4), Color(0xFF785BD7), Color(0xFF6249BA))
                                 )
                             )
-                            .border(1.dp, Color.White.copy(alpha = 0.11f), RoundedCornerShape(30.dp))
+                            .border(1.dp, outline.copy(alpha = 0.75f), RoundedCornerShape(30.dp))
                             .padding(start = 21.dp, top = 20.dp, end = 18.dp, bottom = 20.dp)
                     ) {
                         Box(
@@ -1293,7 +1300,7 @@ private fun HomeScreen(
                                 .padding(end = 0.dp)
                                 .size(142.dp)
                                 .clip(CircleShape)
-                                .border(1.dp, accent.copy(alpha = 0.18f), CircleShape)
+                                .border(1.dp, Color.White.copy(alpha = 0.24f), CircleShape)
                                 .background(Color.White.copy(alpha = 0.018f))
                         )
                         Box(
@@ -1302,7 +1309,7 @@ private fun HomeScreen(
                                 .padding(end = 20.dp)
                                 .size(102.dp)
                                 .clip(CircleShape)
-                                .border(1.dp, accent.copy(alpha = 0.30f), CircleShape)
+                                .border(1.dp, Color.White.copy(alpha = 0.38f), CircleShape)
                         )
                         Box(
                             modifier = Modifier
@@ -1312,19 +1319,19 @@ private fun HomeScreen(
                                 .clip(CircleShape)
                                 .background(
                                     Brush.radialGradient(
-                                        listOf(accent.copy(alpha = 0.30f), accent.copy(alpha = 0.04f))
+                                        listOf(Color(0xFFFFEBAE), Color(0xFFFFEBAE).copy(alpha = 0.10f))
                                     )
                                 )
-                                .border(1.dp, accent.copy(alpha = 0.46f), CircleShape),
+                                .border(1.dp, Color(0xFFFFE8A3), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("✦", color = accent, fontSize = 22.sp)
+                            Text("✦", color = Color(0xFFFFE8A3), fontSize = 22.sp)
                         }
 
                         Column(modifier = Modifier.fillMaxWidth(0.78f)) {
                             Text(
                                 "TEMPO LOCAL  /  24H",
-                                color = accent,
+                                color = Color(0xFFF4EFFF),
                                 fontSize = 8.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.8.sp
@@ -1332,7 +1339,7 @@ private fun HomeScreen(
                             Spacer(Modifier.height(9.dp))
                             Text(
                                 greeting,
-                                color = Color(0xFFB8CBE0),
+                                color = Color(0xFFF4EFFF),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -1347,7 +1354,7 @@ private fun HomeScreen(
                             Spacer(Modifier.height(2.dp))
                             Text(
                                 date.uppercase(Locale("pt", "BR")),
-                                color = Color(0xFFA5B9D1),
+                                color = Color(0xFFE5DEFF),
                                 fontSize = 8.sp,
                                 letterSpacing = 1.2.sp,
                                 maxLines = 1,
@@ -1371,8 +1378,8 @@ private fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(18.dp))
-                        .background(Color(0xFF111F33))
-                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
+                        .background(surface)
+                        .border(1.dp, outline, RoundedCornerShape(18.dp))
                         .clickable { onOpenDrawer() }
                         .padding(horizontal = 15.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -1380,8 +1387,8 @@ private fun HomeScreen(
                     Text("⌕", color = accent, fontSize = 25.sp)
                     Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Pesquisar no dispositivo", color = AuraWhite, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        Text("Aplicativos, ferramentas e atalhos", color = AuraMuted, fontSize = 9.sp)
+                        Text("Pesquisar no dispositivo", color = ink, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text("Aplicativos, ferramentas e atalhos", color = muted, fontSize = 9.sp)
                     }
                     Text("↗", color = accent, fontSize = 18.sp)
                 }
@@ -1391,10 +1398,10 @@ private fun HomeScreen(
                 // Ações rápidas em blocos independentes.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("CENTRAL DE COMANDO", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
-                        Text("Acesso imediato ao seu espaço", color = AuraMuted, fontSize = 9.sp)
+                        Text("Atalhos rápidos", color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                        Text("Acesso imediato ao seu espaço", color = muted, fontSize = 9.sp)
                     }
-                    Text("3 ATALHOS", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Text("3 opções", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 }
                 Spacer(Modifier.height(11.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -1402,7 +1409,7 @@ private fun HomeScreen(
                         symbol = "▦",
                         title = "Aplicativos",
                         detail = "Abrir biblioteca",
-                        accent = accent,
+                        accent = Color(0xFF8067D9),
                         modifier = Modifier.weight(1f),
                         onClick = onOpenDrawer
                     )
@@ -1410,7 +1417,7 @@ private fun HomeScreen(
                         symbol = "✧",
                         title = "Favoritos",
                         detail = "${favorites.size} fixados",
-                        accent = accent,
+                        accent = Color(0xFFE5AD55),
                         modifier = Modifier.weight(1f),
                         onClick = onOpenFavorites
                     )
@@ -1418,7 +1425,7 @@ private fun HomeScreen(
                         symbol = "◈",
                         title = "Personalizar",
                         detail = "Seu visual",
-                        accent = accent,
+                        accent = Color(0xFF55A98D),
                         modifier = Modifier.weight(1f),
                         onClick = onOpenSettings
                     )
@@ -1428,8 +1435,8 @@ private fun HomeScreen(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("ÁREA LIVRE", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
-                        Text("Atalhos posicionados por você", color = AuraMuted, fontSize = 9.sp)
+                        Text("Seu espaço", color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                        Text("Atalhos posicionados por você", color = muted, fontSize = 9.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = onToggleEditMode) {
@@ -1443,8 +1450,8 @@ private fun HomeScreen(
                 if (homeShortcuts.isEmpty()) {
                     Row(
                         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
-                            .background(Color(0xFF111F33))
-                            .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(18.dp))
+                            .background(surface)
+                            .border(1.dp, outline, RoundedCornerShape(18.dp))
                             .clickable { onOpenLibraryForShortcut() }
                             .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -1454,8 +1461,8 @@ private fun HomeScreen(
                         }
                         Spacer(Modifier.width(11.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Fixe aplicativos na Home", color = AuraWhite, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Abra a biblioteca, segure um app e escolha Adicionar à Home.", color = AuraMuted, fontSize = 9.sp)
+                            Text("Fixe aplicativos na Home", color = ink, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Abra a biblioteca, segure um app e escolha Adicionar à Home.", color = muted, fontSize = 9.sp)
                         }
                         Text("›", color = accent, fontSize = 22.sp)
                     }
@@ -1479,10 +1486,10 @@ private fun HomeScreen(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("WIDGETS", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                        Text("Widgets", color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
                         Text(
                             if (widgetPlacements.isEmpty()) "Traga informações para sua Home" else "${widgetPlacements.size} widget(s) no seu espaço",
-                            color = AuraMuted,
+                            color = muted,
                             fontSize = 9.sp
                         )
                     }
@@ -1508,8 +1515,8 @@ private fun HomeScreen(
                     Row(
                         modifier = Modifier.fillMaxWidth()
                             .clip(RoundedCornerShape(18.dp))
-                            .background(Color(0xFF111F33))
-                            .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(18.dp))
+                            .background(surface)
+                            .border(1.dp, outline, RoundedCornerShape(18.dp))
                             .clickable { onOpenWidgetPicker() }
                             .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -1520,8 +1527,8 @@ private fun HomeScreen(
                         ) { Text("▦", color = accent, fontSize = 20.sp) }
                         Spacer(Modifier.width(11.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Adicionar widget do Android", color = AuraWhite, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Calendário, clima, música e outros", color = AuraMuted, fontSize = 9.sp)
+                            Text("Adicionar widget do Android", color = ink, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Calendário, clima, música e outros", color = muted, fontSize = 9.sp)
                         }
                         Text("›", color = accent, fontSize = 22.sp)
                     }
@@ -1541,8 +1548,8 @@ private fun HomeScreen(
                 // Favoritos deixam de ser duas linhas de cartões genéricos e viram dock de ícones.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("SEU DOCK", color = AuraWhite, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
-                        Text("O que você usa todos os dias", color = AuraMuted, fontSize = 9.sp)
+                        Text("Seus favoritos", color = ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                        Text("O que você usa todos os dias", color = muted, fontSize = 9.sp)
                     }
                     Text(
                         "EDITAR  ↗",
@@ -1559,8 +1566,8 @@ private fun HomeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(20.dp))
-                            .background(Color(0xFF111F33))
-                            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
+                            .background(surface)
+                            .border(1.dp, outline, RoundedCornerShape(20.dp))
                             .clickable { onOpenDrawer() }
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -1571,8 +1578,8 @@ private fun HomeScreen(
                         ) { Text("+", color = accent, fontSize = 25.sp) }
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Monte seu dock", color = AuraWhite, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Segure um app na biblioteca para fixá-lo aqui.", color = AuraMuted, fontSize = 9.sp)
+                            Text("Monte seu dock", color = ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Segure um app na biblioteca para fixá-lo aqui.", color = muted, fontSize = 9.sp)
                         }
                         Text("›", color = accent, fontSize = 23.sp)
                     }
@@ -1588,10 +1595,10 @@ private fun HomeScreen(
                                     modifier = Modifier.size(61.dp).clip(RoundedCornerShape(20.dp))
                                         .background(
                                             Brush.linearGradient(
-                                                listOf(Color(0xFF243B55), Color(0xFF142239))
+                                                listOf(Color(0xFFF4F0FC), Color(0xFFEAE4F7))
                                             )
                                         )
-                                        .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(20.dp)),
+                                        .border(1.dp, outline, RoundedCornerShape(20.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     AppIconArtwork(app, iconSize.coerceIn(42f, 54f))
@@ -1600,7 +1607,7 @@ private fun HomeScreen(
                                     Spacer(Modifier.height(7.dp))
                                     Text(
                                         app.title,
-                                        color = Color(0xFFDCE8F6),
+                                        color = ink,
                                         fontSize = 9.sp,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -1620,8 +1627,8 @@ private fun HomeScreen(
                         Spacer(Modifier.height(25.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("RETOMAR", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
-                                Text("Acessados recentemente", color = AuraMuted, fontSize = 9.sp)
+                                Text("Recentes", color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                                Text("Acessados recentemente", color = muted, fontSize = 9.sp)
                             }
                             Text("RECENTES", color = accent, fontSize = 8.sp, letterSpacing = 1.sp)
                         }
@@ -1631,8 +1638,8 @@ private fun HomeScreen(
                                 Row(
                                     modifier = Modifier.width(145.dp)
                                         .clip(RoundedCornerShape(17.dp))
-                                        .background(Color(0xFF111F33))
-                                        .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(17.dp))
+                                        .background(surface)
+                                        .border(1.dp, outline, RoundedCornerShape(17.dp))
                                         .clickable { onLaunch(app) }
                                         .padding(horizontal = 11.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically
@@ -1641,7 +1648,7 @@ private fun HomeScreen(
                                     Spacer(Modifier.width(9.dp))
                                     Text(
                                         app.title,
-                                        color = AuraWhite,
+                                        color = ink,
                                         fontSize = 10.sp,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -1656,8 +1663,8 @@ private fun HomeScreen(
                     Spacer(Modifier.height(25.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("COLEÇÕES", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
-                            Text("Sua organização pessoal", color = AuraMuted, fontSize = 9.sp)
+                            Text("Coleções", color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                            Text("Sua organização pessoal", color = muted, fontSize = 9.sp)
                         }
                         Text(
                             "GERENCIAR ↗",
@@ -1672,8 +1679,8 @@ private fun HomeScreen(
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                                 .clip(RoundedCornerShape(17.dp))
-                                .background(Color(0xFF111F33))
-                                .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(17.dp))
+                                .background(surface)
+                                .border(1.dp, outline, RoundedCornerShape(17.dp))
                                 .clickable { onFolder(folder) }
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -1684,8 +1691,8 @@ private fun HomeScreen(
                             ) { Text("▦", color = accent, fontSize = 19.sp) }
                             Spacer(Modifier.width(11.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(folder.name, color = AuraWhite, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("${folder.packages.size} aplicativos", color = AuraMuted, fontSize = 9.sp)
+                                Text(folder.name, color = ink, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("${folder.packages.size} aplicativos", color = muted, fontSize = 9.sp)
                             }
                             Text("›", color = accent, fontSize = 22.sp)
                         }
@@ -1698,7 +1705,7 @@ private fun HomeScreen(
             // Dock flutuante persistente.
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xE615263B)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xEEFFFFFF)),
                 shape = RoundedCornerShape(25.dp)
             ) {
                 Row(
@@ -1714,7 +1721,7 @@ private fun HomeScreen(
             Spacer(Modifier.height(5.dp))
             Text(
                 if (isDefault) "AURA  /  HOME SYSTEM ACTIVE" else "AURA  /  TOQUE PARA DEFINIR COMO INÍCIO",
-                color = AuraMuted.copy(alpha = 0.62f),
+                color = muted.copy(alpha = 0.62f),
                 fontSize = 7.sp,
                 letterSpacing = 1.1.sp,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -1769,8 +1776,8 @@ private fun HomeCommandTile(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(19.dp))
-            .background(Color(0xFF14263D))
-            .border(1.dp, Color.White.copy(alpha = 0.075f), RoundedCornerShape(19.dp))
+            .background(Color(0xFFFFFFFF))
+            .border(1.dp, Color(0xFFE6DFF2), RoundedCornerShape(19.dp))
             .clickable { onClick() }
             .padding(horizontal = 10.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.Start
@@ -1783,8 +1790,8 @@ private fun HomeCommandTile(
             Text(symbol, color = accent, fontSize = 19.sp)
         }
         Spacer(Modifier.height(10.dp))
-        Text(title, color = AuraWhite, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-        Text(detail, color = AuraMuted, fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(title, color = Color(0xFF302A43), fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(detail, color = Color(0xFF817990), fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -2476,7 +2483,7 @@ private fun DockAction(symbol: String, title: String, accent: Color, onClick: ()
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(symbol, color = accent, fontSize = 22.sp)
-        Text(title, color = AuraWhite, fontSize = 9.sp, fontWeight = FontWeight.Medium)
+        Text(title, color = Color(0xFF302A43), fontSize = 9.sp, fontWeight = FontWeight.Medium)
     }
 }
 
