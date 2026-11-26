@@ -28,6 +28,9 @@ Uma beta assinada com uma chave de distribuição estável será necessária ant
 
 ## Roteiro de testes
 
+- Identidade visual: confira o fundo lavanda, cartões arredondados, contraste dos textos e os três atalhos pastel; alterne para o tema noturno e valide a leitura dos componentes da Home.
+- Consistência entre telas: compare Home, biblioteca, Studio, diálogos, dock, atalhos e molduras dos widgets; procure superfícies escuras isoladas ou texto claro sobre fundo claro.
+- Acessibilidade visual: teste fonte e tamanho de exibição do Android em níveis padrão e ampliado, além do uso em ambientes claros e escuros.
 - Papel de parede: foto local, foto de provedor em nuvem, imagem grande (até 20 MB), arquivo inválido, troca, remoção, reinício do aparelho e pouco espaço disponível.
 - Home: relógio, data, busca, favoritos, recentes, atalhos, pastas, modo de edição e navegação por gestos.
 - Biblioteca: busca, filtros Todos/Favoritos/Ocultos, toque longo, informações do app e solicitação de desinstalação.
