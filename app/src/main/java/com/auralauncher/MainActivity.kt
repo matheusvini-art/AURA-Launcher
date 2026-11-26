@@ -104,6 +104,7 @@ import android.widget.Toast
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -140,11 +141,27 @@ class MainActivity : ComponentActivity() {
     private lateinit var widgetPlacementsState: androidx.compose.runtime.MutableState<List<WidgetPlacement>>
     private lateinit var wallpaperState: androidx.compose.runtime.MutableState<String?>
     private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var appLoadJob: Job? = null
     private var pendingWidgetId: Int? = null
+
+    private fun refreshLaunchableApps() {
+        if (!::appState.isInitialized) return
+        appLoadJob?.cancel()
+        appLoadJob = activityScope.launch {
+            try {
+                val loadedApps = withContext(Dispatchers.IO) { loadLaunchableApps() }
+                if (!isFinishing && !isDestroyed) appState.value = loadedApps
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // Keep the previous app list if the package manager fails temporarily.
+            }
+        }
+    }
 
     private val notificationRefreshReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (::appState.isInitialized) appState.value = loadLaunchableApps()
+            refreshLaunchableApps()
         }
     }
 
@@ -292,7 +309,7 @@ class MainActivity : ComponentActivity() {
         if (!notificationAccessState.value) {
             prefs.edit().remove(AuraNotificationListenerService.KEY_COUNTS).apply()
         }
-        appState = mutableStateOf(loadLaunchableApps())
+        appState = mutableStateOf(emptyList())
         val savedWallpaper = File(filesDir, WALLPAPER_FILE_NAME)
         val previousWallpaper = File(filesDir, "$WALLPAPER_FILE_NAME.bak")
         if (!savedWallpaper.isFile && previousWallpaper.isFile) {
@@ -391,6 +408,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun startInitialAppScan() = refreshLaunchableApps()
+
     override fun onStart() {
         super.onStart()
         if (::widgetHostController.isInitialized) runCatching { widgetHostController.startListening() }
@@ -421,7 +440,7 @@ class MainActivity : ComponentActivity() {
                     .apply()
             }
         }
-        if (::appState.isInitialized) appState.value = loadLaunchableApps()
+        refreshLaunchableApps()
     }
 
     override fun onDestroy() {
@@ -560,7 +579,7 @@ class MainActivity : ComponentActivity() {
 
     private fun saveIconPack(packageName: String?) {
         getSharedPreferences("aura_preferences", MODE_PRIVATE).edit().putString("icon_pack", packageName).apply()
-        if (::appState.isInitialized) appState.value = loadLaunchableApps()
+        refreshLaunchableApps()
     }
 
     private fun isNotificationAccessEnabled(): Boolean =
