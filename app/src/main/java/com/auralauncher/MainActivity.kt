@@ -828,6 +828,7 @@ private fun AuraLauncher(
 
     BackHandler(enabled = showSettings || showDrawer) {
         if (showSettings) {
+            persistCurrentSettings()
             showSettings = false
         } else {
             showDrawer = false
@@ -908,6 +909,14 @@ private fun AuraLauncher(
         onLaunch(app.packageName)
     }
 
+    fun persistCurrentSettings() {
+        onSaveSettings(
+            currentIconSize, currentColumns, showLabels, accentIndex,
+            themeMode, currentSort, motionEnabled
+        )
+        onSaveGestureSettings(swipeLeftGestureEnabled, doubleTapGestureEnabled)
+    }
+
     Surface(modifier = Modifier.fillMaxSize(), color = AuraBlack) {
         Box(modifier = Modifier.fillMaxSize().background(background).windowInsetsPadding(WindowInsets.safeDrawing)) {
             when {
@@ -934,7 +943,7 @@ private fun AuraLauncher(
                     notificationAccessEnabled = notificationAccessEnabled,
                     swipeLeftEnabled = swipeLeftGestureEnabled,
                     doubleTapSettingsEnabled = doubleTapGestureEnabled,
-                    onBack = { showSettings = false },
+                    onBack = { persistCurrentSettings(); showSettings = false },
                     onAddWidget = { showWidgetPicker = true },
                     onSelectIconPack = { selectedIconPack = it; onSelectIconPack(it) },
                     onOpenNotificationSettings = onOpenNotificationSettings,
@@ -951,17 +960,19 @@ private fun AuraLauncher(
                     onExportBackup = onExportBackup,
                     onImportBackup = onImportBackup,
                     onCreateFolder = { showFolderBuilder = true },
-                    onOpenHidden = { drawerTab = 2; search = ""; showSettings = false; showDrawer = true },
+                    onOpenHidden = {
+                        persistCurrentSettings()
+                        drawerTab = 2
+                        search = ""
+                        showSettings = false
+                        showDrawer = true
+                    },
                     onRemoveFolder = { folder ->
                         folders = folders.filterNot { it == folder }
                         onSaveFolders(folders)
                     },
                     onSave = {
-                        onSaveSettings(
-                            currentIconSize, currentColumns, showLabels, accentIndex,
-                            themeMode, currentSort, motionEnabled
-                        )
-                        onSaveGestureSettings(swipeLeftGestureEnabled, doubleTapGestureEnabled)
+                        persistCurrentSettings()
                         showSettings = false
                     }
                 )
@@ -1080,6 +1091,7 @@ private fun AuraLauncher(
             onCreate = { name, packages ->
                 folders = folders + AppFolder(name, packages)
                 onSaveFolders(folders)
+                persistCurrentSettings()
                 showFolderBuilder = false
                 showSettings = false
             }
