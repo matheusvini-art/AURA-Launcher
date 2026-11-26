@@ -365,17 +365,17 @@ private fun decodeFolders(raw: String?): List<AppFolder> {
     }
 }
 
-private val AuraBlack = Color(0xFF11100F)
-private val AuraPanel = Color(0xFF252321)
-private val AuraPanelRaised = Color(0xFF302C29)
-private val AuraMuted = Color(0xFFB4AAA2)
-private val AuraWhite = Color(0xFFF5F0EA)
+private val AuraBlack = Color(0xFF070B14)
+private val AuraPanel = Color(0xFF111A2B)
+private val AuraPanelRaised = Color(0xFF18243A)
+private val AuraMuted = Color(0xFF91A4C2)
+private val AuraWhite = Color(0xFFF2F7FF)
 private val AccentOptions = listOf(
-    Color(0xFFFF895F),
-    Color(0xFFE8CBB4),
-    Color(0xFFB9C8B5),
-    Color(0xFFD9B8C6),
-    Color(0xFFE7B96F)
+    Color(0xFF45E6FF),
+    Color(0xFF8B7CFF),
+    Color(0xFFB6FF5C),
+    Color(0xFFFF5EC4),
+    Color(0xFF4F9CFF)
 )
 
 @Composable
@@ -442,7 +442,7 @@ private fun AuraLauncher(
     val background = if (themeMode == 1) {
         Brush.verticalGradient(listOf(Color.Black, Color(0xFF050505), Color.Black))
     } else {
-        Brush.verticalGradient(listOf(Color(0xFF3A3430), AuraBlack, Color(0xFF0C0B0A)))
+        Brush.verticalGradient(listOf(Color(0xFF132642), AuraBlack, Color(0xFF050810)))
     }
     val appMap = remember(apps) { apps.associateBy { it.packageName } }
     val favoriteApps = apps.filter { it.packageName in favorites && it.packageName !in hidden }
@@ -633,7 +633,7 @@ private fun HomeScreen(
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(Color(0xFF3B3430), Color(0xFF171514), Color(0xFF0C0B0A))
+                    listOf(Color(0xFF142C4C), Color(0xFF0B1424), Color(0xFF050810))
                 )
             )
             .padding(horizontal = 22.dp, vertical = 16.dp),
@@ -737,7 +737,7 @@ private fun HomeScreen(
                     .fillMaxWidth()
                     .clickable { onOpenDrawer() },
                 shape = RoundedCornerShape(19.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2E2926))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF14243B))
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
@@ -764,7 +764,7 @@ private fun HomeScreen(
                         .fillMaxWidth()
                         .background(
                             Brush.linearGradient(
-                                listOf(Color(0xFF57463C), Color(0xFF342A25), Color(0xFF211C19))
+                                listOf(Color(0xFF174A68), Color(0xFF172B4B), Color(0xFF111A31))
                             )
                         )
                         .padding(19.dp)
@@ -792,7 +792,7 @@ private fun HomeScreen(
                             Spacer(Modifier.height(7.dp))
                             Text(
                                 "${favorites.size} favoritos  ·  ${recentApps.size} recentes  ·  ${folders.size} pastas",
-                                color = Color(0xFFD2C5B9),
+                                color = Color(0xFFB9CBE5),
                                 fontSize = 10.sp
                             )
                         }
@@ -868,7 +868,7 @@ private fun HomeScreen(
                             Card(
                                 modifier = Modifier.weight(1f).clickable { onLaunch(app) },
                                 shape = RoundedCornerShape(18.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF292421))
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF142239))
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 13.dp),
@@ -991,7 +991,7 @@ private fun HomeScreen(
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2E2926)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF14243B)),
             shape = RoundedCornerShape(23.dp)
         ) {
             Row(
@@ -1034,7 +1034,7 @@ private fun DrawerScreen(
 ) {
     Column(
         modifier = Modifier.fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF38302C), AuraBlack, Color(0xFF0C0B0A))))
+            .background(Brush.verticalGradient(listOf(Color(0xFF142C4C), AuraBlack, Color(0xFF050810))))
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1059,7 +1059,7 @@ private fun DrawerScreen(
         Spacer(Modifier.height(19.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF302B28)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF15243A)),
             shape = RoundedCornerShape(18.dp)
         ) {
             Row(
@@ -1097,7 +1097,7 @@ private fun DrawerScreen(
         Spacer(Modifier.height(15.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1D1A18)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0D1728)),
             shape = RoundedCornerShape(15.dp)
         ) {
             Row(
@@ -1175,7 +1175,7 @@ private fun DrawerScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(17.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF292421))
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF142239))
                     ) {
                         AppIcon(
                             app = app,
@@ -1254,7 +1254,7 @@ private fun SettingsScreen(
     val accent = AccentOptions[accentIndex]
     Column(
         modifier = Modifier.fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF38302C), AuraBlack)))
+            .background(Brush.verticalGradient(listOf(Color(0xFF142C4C), AuraBlack)))
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 21.dp, vertical = 16.dp)
     ) {
@@ -1295,7 +1295,7 @@ private fun SettingsScreen(
                     )
                     Text(
                         if (isDefault) "O AURA está cuidando da sua tela inicial." else "Escolha o AURA como tela inicial do Android.",
-                        color = Color(0xFFD2C5B9),
+                        color = Color(0xFFB9CBE5),
                         fontSize = 10.sp
                     )
                 }
@@ -1334,7 +1334,7 @@ private fun SettingsScreen(
         SettingCard {
             Text("Tema", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                ThemePreview("Graphite", themeMode == 0, Color(0xFF292421), accent) { onTheme(0) }
+                ThemePreview("Graphite", themeMode == 0, Color(0xFF142239), accent) { onTheme(0) }
                 ThemePreview("AMOLED", themeMode == 1, Color(0xFF050505), accent) { onTheme(1) }
             }
             Divider(color = Color.White.copy(alpha = 0.08f))
@@ -1413,7 +1413,7 @@ private fun SettingsScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF292421))
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF142239))
         ) {
             Column(modifier = Modifier.padding(17.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1478,7 +1478,7 @@ private fun ThemePreview(
 ) {
     Column(
         modifier = Modifier.width(120.dp).clip(RoundedCornerShape(15.dp))
-            .background(Color(0xFF3A302B)).clickable { onClick() }.padding(8.dp)
+            .background(Color(0xFF182B45)).clickable { onClick() }.padding(8.dp)
     ) {
         Box(
             modifier = Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(10.dp))
@@ -1538,7 +1538,7 @@ private fun ChoiceChip(label: String, selected: Boolean, accent: Color, onClick:
         fontWeight = FontWeight.SemiBold,
         fontSize = 11.sp,
         modifier = Modifier.clip(RoundedCornerShape(12.dp))
-            .background(if (selected) accent else Color(0xFF39322E))
+            .background(if (selected) accent else Color(0xFF1D3452))
             .clickable { onClick() }
             .padding(horizontal = 15.dp, vertical = 9.dp)
     )
