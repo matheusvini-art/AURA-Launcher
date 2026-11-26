@@ -405,6 +405,17 @@ class MainActivity : ComponentActivity() {
         widgetPlacementsState.value = next
         getSharedPreferences("aura_preferences", MODE_PRIVATE).edit()
             .putString("widget_placements", WidgetPlacementCodec.encode(next)).apply()
+        runCatching {
+            widgetHostController.manager.updateAppWidgetOptions(
+                placement.widgetId,
+                Bundle().apply {
+                    putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, placement.widthDp.toInt())
+                    putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, placement.widthDp.toInt())
+                    putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, placement.heightDp.toInt())
+                    putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, placement.heightDp.toInt())
+                }
+            )
+        }
     }
 
     private fun saveIconPack(packageName: String?) {
