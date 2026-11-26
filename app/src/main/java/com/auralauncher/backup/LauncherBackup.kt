@@ -55,7 +55,7 @@ object LauncherBackupCodec {
         require(raw.length <= MAX_TEXT_LENGTH) { "Backup file is too large." }
         val properties = Properties().apply { load(StringReader(raw)) }
         val schema = properties.getProperty("schema")?.toIntOrNull()
-        require(schema in 1..SCHEMA_VERSION) {
+        require(schema != null && schema in 1..SCHEMA_VERSION) {
             "Unsupported or missing AURA backup version."
         }
         fun list(key: String) = properties.getProperty(key, "")
