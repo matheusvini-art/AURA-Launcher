@@ -1641,7 +1641,18 @@ private fun SettingsScreen(
     isDefault: Boolean,
     hiddenCount: Int,
     folders: List<AppFolder>,
+    widgetCount: Int,
+    installedIconPacks: List<InstalledIconPack>,
+    selectedIconPack: String?,
+    notificationAccessEnabled: Boolean,
+    swipeLeftEnabled: Boolean,
+    doubleTapSettingsEnabled: Boolean,
     onBack: () -> Unit,
+    onAddWidget: () -> Unit,
+    onSelectIconPack: (String?) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
+    onSwipeLeftGesture: (Boolean) -> Unit,
+    onDoubleTapGesture: (Boolean) -> Unit,
     onIconSize: (Float) -> Unit,
     onColumns: (Int) -> Unit,
     onLabels: (Boolean) -> Unit,
@@ -1798,6 +1809,105 @@ private fun SettingsScreen(
                 }
                 TextButton(onClick = onOpenHidden) { Text("Gerenciar", color = accent) }
             }
+        }
+
+        SettingsHeading("WIDGETS DO ANDROID", accent)
+        SettingCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Área de widgets", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text("$widgetCount widget(s) adicionados à Home", color = AuraMuted, fontSize = 10.sp)
+                }
+                Text("ANDROID", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            }
+            Text(
+                "Use os widgets originais dos aplicativos instalados. Depois de adicionar, arraste a barra superior para posicionar cada um na tela.",
+                color = AuraMuted,
+                fontSize = 10.sp,
+                lineHeight = 15.sp
+            )
+            Button(
+                onClick = onAddWidget,
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = AuraBlack),
+                shape = RoundedCornerShape(14.dp)
+            ) { Text("Adicionar widget", fontWeight = FontWeight.Bold) }
+        }
+
+        SettingsHeading("PACOTES DE ÍCONES", accent)
+        SettingCard {
+            Text("Escolha o estilo dos aplicativos", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            ChoiceChip("Ícones originais", selectedIconPack == null, accent) { onSelectIconPack(null) }
+            if (installedIconPacks.isEmpty()) {
+                Text(
+                    "Nenhum pacote compatível encontrado. Instale um icon pack que ofereça appfilter.xml e suporte ADW/Nova.",
+                    color = AuraMuted,
+                    fontSize = 10.sp,
+                    lineHeight = 15.sp
+                )
+            } else {
+                installedIconPacks.forEach { pack ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(pack.label, color = AuraWhite, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                        ChoiceChip("Aplicar", selectedIconPack == pack.packageName, accent) {
+                            onSelectIconPack(pack.packageName)
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingsHeading("INDICADORES DE NOTIFICAÇÃO", accent)
+        SettingCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Acesso às notificações", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (notificationAccessEnabled) "Permissão concedida" else "Permissão ainda não concedida",
+                        color = if (notificationAccessEnabled) Color(0xFF9BE4C0) else AuraMuted,
+                        fontSize = 10.sp
+                    )
+                }
+                Box(
+                    Modifier.size(9.dp).clip(CircleShape)
+                        .background(if (notificationAccessEnabled) Color(0xFF61E6A7) else Color(0xFFFFC46B))
+                )
+            }
+            Text(
+                "O AURA lê somente a quantidade de notificações por aplicativo para mostrar os indicadores. O conteúdo das mensagens não é salvo.",
+                color = AuraMuted,
+                fontSize = 10.sp,
+                lineHeight = 15.sp
+            )
+            Button(
+                onClick = onOpenNotificationSettings,
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = AuraBlack),
+                shape = RoundedCornerShape(14.dp)
+            ) { Text(if (notificationAccessEnabled) "Gerenciar permissão" else "Ativar indicadores", fontWeight = FontWeight.Bold) }
+        }
+
+        SettingsHeading("GESTOS", accent)
+        SettingCard {
+            SettingSwitch(
+                "Deslizar para a esquerda",
+                "Abrir a biblioteca a partir da tela inicial",
+                swipeLeftEnabled,
+                onSwipeLeftGesture
+            )
+            Divider(color = Color.White.copy(alpha = 0.08f))
+            SettingSwitch(
+                "Toque duplo no relógio",
+                "Abrir o Studio de personalização",
+                doubleTapSettingsEnabled,
+                onDoubleTapGesture
+            )
+            Text(
+                "Pressione e segure o painel do relógio para alternar o modo de edição dos widgets.",
+                color = AuraMuted,
+                fontSize = 10.sp,
+                lineHeight = 14.sp
+            )
         }
 
         SettingsHeading("BACKUP E RESTAURAÇÃO", accent)
@@ -1978,11 +2088,28 @@ private fun AppIcon(
             .padding(vertical = 3.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(
-            bitmap = bitmap,
-            contentDescription = app.title,
-            modifier = Modifier.size(iconSize.dp).clip(RoundedCornerShape(17.dp))
-        )
+        Box(modifier = Modifier.size(iconSize.dp)) {
+            Image(
+                bitmap = bitmap,
+                contentDescription = app.title,
+                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(17.dp))
+            )
+            if (app.notificationCount > 0) {
+                Box(
+                    modifier = Modifier.align(Alignment.TopEnd).size(17.dp)
+                        .clip(CircleShape).background(Color(0xFFFF526B))
+                        .border(1.dp, AuraBlack, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        if (app.notificationCount > 9) "9+" else app.notificationCount.toString(),
+                        color = Color.White,
+                        fontSize = 7.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
         if (labels) {
             Spacer(Modifier.height(6.dp))
             Text(
