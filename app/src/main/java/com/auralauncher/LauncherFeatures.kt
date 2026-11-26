@@ -1,9 +1,14 @@
 package com.auralauncher
 
 import android.appwidget.AppWidgetProviderInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.Drawable
 import android.content.pm.PackageManager
 import android.widget.FrameLayout
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +38,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
@@ -44,6 +51,150 @@ import androidx.compose.ui.unit.sp
 import com.auralauncher.widgets.AuraWidgetHostController
 import org.json.JSONArray
 import org.json.JSONObject
+
+
+data class HomeShortcutPlacement(
+    val packageName: String,
+    val xDp: Float,
+    val yDp: Float
+)
+
+data class HomeShortcutItem(
+    val packageName: String,
+    val title: String,
+    val icon: Drawable
+)
+
+object HomeShortcutCodec {
+    fun encode(items: List<HomeShortcutPlacement>): String {
+        val array = JSONArray()
+        items.forEach { item ->
+            array.put(
+                JSONObject()
+                    .put("package", item.packageName)
+                    .put("x", item.xDp.coerceAtLeast(0f).toDouble())
+                    .put("y", item.yDp.coerceAtLeast(0f).toDouble())
+            )
+        }
+        return array.toString()
+    }
+
+    fun decode(raw: String?): List<HomeShortcutPlacement> = runCatching {
+        val array = JSONArray(raw ?: "[]")
+        (0 until array.length()).mapNotNull { index ->
+            val item = array.optJSONObject(index) ?: return@mapNotNull null
+            val packageName = item.optString("package").trim()
+            if (packageName.isBlank() || packageName.length > 255) return@mapNotNull null
+            HomeShortcutPlacement(
+                packageName = packageName,
+                xDp = item.optDouble("x", 12.0).toFloat().coerceIn(0f, 2000f),
+                yDp = item.optDouble("y", 12.0).toFloat().coerceIn(0f, 4000f)
+            )
+        }.distinctBy { it.packageName }
+    }.getOrDefault(emptyList())
+}
+
+@Composable
+fun HomeShortcutWorkspace(
+    items: List<HomeShortcutItem>,
+    placements: List<HomeShortcutPlacement>,
+    accent: Color,
+    editable: Boolean,
+    onLaunch: (String) -> Unit,
+    onMove: (HomeShortcutPlacement) -> Unit,
+    onRemove: (String) -> Unit
+) {
+    val maxBottom = placements.maxOfOrNull { it.yDp + 108f } ?: 0f
+    val workspaceHeight = (maxBottom + 160f).coerceAtLeast(320f).dp
+    val density = LocalDensity.current
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxWidth().height(workspaceHeight)
+            .clip(RoundedCornerShape(22.dp))
+            .background(Color(0x33111F33))
+            .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(22.dp))
+    ) {
+        val availableWidth = maxWidth
+        placements.forEach { placement ->
+            val item = items.firstOrNull { it.packageName == placement.packageName } ?: return@forEach
+            var x by remember(placement.packageName) { mutableFloatStateOf(placement.xDp) }
+            var y by remember(placement.packageName) { mutableFloatStateOf(placement.yDp) }
+            LaunchedEffect(placement.xDp, placement.yDp) {
+                x = placement.xDp
+                y = placement.yDp
+            }
+            Card(
+                modifier = Modifier.offset {
+                    IntOffset(
+                        with(density) { x.dp.roundToPx() },
+                        with(density) { y.dp.roundToPx() }
+                    )
+                }.width(84.dp).height(108.dp).clickable { onLaunch(item.packageName) },
+                shape = RoundedCornerShape(19.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF182A42))
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 5.dp, vertical = 3.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(17.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.weight(1f).pointerInput(placement.packageName, availableWidth) {
+                                if (editable) {
+                                    detectDragGestures(
+                                        onDragEnd = { onMove(placement.copy(xDp = x, yDp = y)) }
+                                    ) { change, amount ->
+                                        change.consume()
+                                        val maxX = (availableWidth - 84.dp).value.coerceAtLeast(0f)
+                                        val maxY = (workspaceHeight - 108.dp).value.coerceAtLeast(0f)
+                                        x = (x + amount.x / density.density).coerceIn(0f, maxX)
+                                        y = (y + amount.y / density.density).coerceIn(0f, maxY)
+                                    }
+                                }
+                            },
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Text("⠿", color = accent, fontSize = 13.sp)
+                        }
+                        if (editable) {
+                            Text(
+                                "×",
+                                color = Color(0xFFFFA0A0),
+                                fontSize = 14.sp,
+                                modifier = Modifier.clickable { onRemove(item.packageName) }
+                            )
+                        }
+                    }
+                    Image(
+                        bitmap = remember(item.packageName) { item.icon.toShortcutImageBitmap() },
+                        contentDescription = item.title,
+                        modifier = Modifier.size(53.dp).clip(RoundedCornerShape(15.dp))
+                    )
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        item.title,
+                        color = Color(0xFFE5EDF7),
+                        fontSize = 9.sp,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun Drawable.toShortcutImageBitmap(): ImageBitmap {
+    val width = intrinsicWidth.coerceIn(1, 512)
+    val height = intrinsicHeight.coerceIn(1, 512)
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    setBounds(0, 0, canvas.width, canvas.height)
+    draw(canvas)
+    return bitmap.asImageBitmap()
+}
 
 data class WidgetPlacement(
     val widgetId: Int,
