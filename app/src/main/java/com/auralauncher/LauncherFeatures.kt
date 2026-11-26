@@ -114,8 +114,8 @@ fun HomeShortcutWorkspace(
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth().height(workspaceHeight)
             .clip(RoundedCornerShape(22.dp))
-            .background(Color(0x33111F33))
-            .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(22.dp))
+            .background(Color(0xFFF8F5FF))
+            .border(1.dp, Color(0xFFE6DFF2), RoundedCornerShape(22.dp))
     ) {
         val availableWidth = maxWidth
         placements.forEach { placement ->
@@ -134,7 +134,7 @@ fun HomeShortcutWorkspace(
                     )
                 }.width(84.dp).height(108.dp).clickable { onLaunch(item.packageName) },
                 shape = RoundedCornerShape(19.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF182A42))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFFFF))
             ) {
                 Column(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 5.dp, vertical = 3.dp),
@@ -179,7 +179,7 @@ fun HomeShortcutWorkspace(
                     Spacer(Modifier.height(5.dp))
                     Text(
                         item.title,
-                        color = Color(0xFFE5EDF7),
+                        color = Color(0xFF302A43),
                         fontSize = 9.sp,
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
@@ -250,9 +250,9 @@ fun WidgetPickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF111A2B),
-        titleContentColor = Color(0xFFF2F7FF),
-        textContentColor = Color(0xFF91A4C2),
+        containerColor = Color(0xFFFFFFFF),
+        titleContentColor = Color(0xFF302A43),
+        textContentColor = Color(0xFF817990),
         title = { Text("Adicionar widget", fontWeight = FontWeight.Bold) },
         text = {
             Column(
@@ -267,7 +267,7 @@ fun WidgetPickerDialog(
                         Row(
                             modifier = Modifier.fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(Color(0xFF1A2A40))
+                                .background(Color(0xFFF8F5FF))
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -275,18 +275,18 @@ fun WidgetPickerDialog(
                                 Text(
                                     runCatching { provider.loadLabel(packageManager).toString() }
                                         .getOrDefault(provider.provider.packageName),
-                                    color = Color(0xFFF2F7FF),
+                                    color = Color(0xFF302A43),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
                                     "${provider.minWidth} × ${provider.minHeight} dp",
-                                    color = Color(0xFF91A4C2),
+                                    color = Color(0xFF817990),
                                     fontSize = 9.sp
                                 )
                             }
                             TextButton(onClick = { onChoose(provider) }) {
-                                Text("Adicionar", color = Color(0xFF45E6FF))
+                                Text("Adicionar", color = Color(0xFF8067D9))
                             }
                         }
                     }
@@ -294,7 +294,7 @@ fun WidgetPickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Fechar", color = Color(0xFF91A4C2)) }
+            TextButton(onClick = onDismiss) { Text("Fechar", color = Color(0xFF817990)) }
         }
     )
 }
@@ -319,8 +319,8 @@ fun WidgetWorkspace(
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth().height(workspaceHeight)
             .clip(RoundedCornerShape(22.dp))
-            .background(Color(0x33111F33))
-            .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(22.dp))
+            .background(Color(0xFFF8F5FF))
+            .border(1.dp, Color(0xFFE6DFF2), RoundedCornerShape(22.dp))
     ) {
         val availableWidth = maxWidth
         placements.forEach { placement ->
@@ -354,7 +354,7 @@ fun WidgetWorkspace(
                 Column(Modifier.fillMaxSize()) {
                     Row(
                         modifier = Modifier.fillMaxWidth()
-                            .background(Color(0xFF243750))
+                            .background(Color(0xFFEAE4F7))
                             .then(
                                 if (editable) Modifier.pointerInput(placement.widgetId, availableWidth, editable) {
                                     detectDragGestures(
@@ -373,7 +373,7 @@ fun WidgetWorkspace(
                     ) {
                         Text("✥", color = accent, fontSize = 14.sp)
                         Spacer(Modifier.width(7.dp))
-                        Text(if (editable) "MOVER WIDGET" else "WIDGET", color = Color(0xFFDCE8F6), fontSize = 8.sp, modifier = Modifier.weight(1f))
+                        Text(if (editable) "MOVER WIDGET" else "WIDGET", color = Color(0xFF655B79), fontSize = 8.sp, modifier = Modifier.weight(1f))
                         if (editable) {
                             TextButton(onClick = { onRemove(placement.widgetId) }) {
                                 Text("REMOVER", color = Color(0xFFFFA0A0), fontSize = 8.sp)
@@ -389,7 +389,7 @@ fun WidgetWorkspace(
                     )
                     if (editable && canResize) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().height(22.dp).background(Color(0xFF243750)),
+                            modifier = Modifier.fillMaxWidth().height(22.dp).background(Color(0xFFEAE4F7)),
                             horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
