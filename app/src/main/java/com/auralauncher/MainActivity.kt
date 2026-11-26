@@ -10,6 +10,7 @@ import android.provider.Settings.Secure
 import com.auralauncher.backup.LauncherBackup
 import com.auralauncher.widgets.AuraWidgetHostController
 import com.auralauncher.icons.IconPackManager
+import com.auralauncher.icons.InstalledIconPack
 import com.auralauncher.notifications.AuraNotificationListenerService
 import com.auralauncher.backup.LauncherBackupCodec
 import android.content.ActivityNotFoundException
@@ -170,7 +171,10 @@ class MainActivity : ComponentActivity() {
                         accentIndex = prefs.getInt("accent", 0),
                         themeMode = prefs.getInt("theme", 0),
                         sortMode = prefs.getInt("sort_mode", 0),
-                        animationsEnabled = prefs.getBoolean("animations", true)
+                        animationsEnabled = prefs.getBoolean("animations", true),
+                        iconPackPackage = prefs.getString("icon_pack", null),
+                        swipeLeftGestureEnabled = prefs.getBoolean("gesture_swipe_left", true),
+                        doubleTapSettingsEnabled = prefs.getBoolean("gesture_double_tap", true)
                     )
                     val output = contentResolver.openOutputStream(uri)
                         ?: error("Não foi possível abrir o arquivo de destino.")
@@ -202,6 +206,9 @@ class MainActivity : ComponentActivity() {
                         .putInt("theme", snapshot.themeMode)
                         .putInt("sort_mode", snapshot.sortMode)
                         .putBoolean("animations", snapshot.animationsEnabled)
+                        .putString("icon_pack", snapshot.iconPackPackage)
+                        .putBoolean("gesture_swipe_left", snapshot.swipeLeftGestureEnabled)
+                        .putBoolean("gesture_double_tap", snapshot.doubleTapSettingsEnabled)
                         .apply()
                 }.onSuccess {
                     Toast.makeText(this, "Backup restaurado. Atualizando o AURA…", Toast.LENGTH_LONG).show()
