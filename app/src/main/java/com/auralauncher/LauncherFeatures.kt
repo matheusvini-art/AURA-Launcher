@@ -349,7 +349,7 @@ fun WidgetWorkspace(
                     .width(width.dp)
                     .height(height.dp),
                 shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF18243A))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFFFF))
             ) {
                 Column(Modifier.fillMaxSize()) {
                     Row(
