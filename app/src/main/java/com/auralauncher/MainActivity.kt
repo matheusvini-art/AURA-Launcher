@@ -725,17 +725,17 @@ private fun decodeFolders(raw: String?): List<AppFolder> {
     }
 }
 
-private val AuraBlack = Color(0xFF070B14)
-private val AuraPanel = Color(0xFF111A2B)
-private val AuraPanelRaised = Color(0xFF18243A)
-private val AuraMuted = Color(0xFF91A4C2)
-private val AuraWhite = Color(0xFFF2F7FF)
+private val AuraBlack = Color(0xFFF0ECFA)
+private val AuraPanel = Color(0xFFFFFFFF)
+private val AuraPanelRaised = Color(0xFFF8F5FF)
+private val AuraMuted = Color(0xFF817990)
+private val AuraWhite = Color(0xFF302A43)
 private val AccentOptions = listOf(
-    Color(0xFF45E6FF),
+    Color(0xFF8067D9),
     Color(0xFF8B7CFF),
-    Color(0xFFB6FF5C),
-    Color(0xFFFF5EC4),
-    Color(0xFF4F9CFF)
+    Color(0xFFFFC968),
+    Color(0xFFFF8DB6),
+    Color(0xFF5B9CEB)
 )
 
 @Composable
@@ -857,7 +857,7 @@ private fun AuraLauncher(
     val background = if (themeMode == 1) {
         Brush.verticalGradient(listOf(Color.Black, Color(0xFF050505), Color.Black))
     } else {
-        Brush.verticalGradient(listOf(Color(0xFF132642), AuraBlack, Color(0xFF050810)))
+        Brush.verticalGradient(listOf(Color(0xFFF0ECFA), Color(0xFFF8F5FF), Color(0xFFE9E3F5)))
     }
     val appMap = remember(apps) { apps.associateBy { it.packageName } }
     val favoriteApps = apps.filter { it.packageName in favorites && it.packageName !in hidden }
@@ -1814,7 +1814,7 @@ private fun DrawerScreen(
 ) {
     Column(
         modifier = Modifier.fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF0E2138), Color(0xFF081321), Color(0xFF050812))))
+            .background(Brush.verticalGradient(listOf(Color(0xFFF0ECFA), Color(0xFFF8F5FF))))
             .padding(horizontal = 19.dp, vertical = 12.dp)
     ) {
         Row(
@@ -1823,8 +1823,8 @@ private fun DrawerScreen(
         ) {
             Box(
                 modifier = Modifier.size(43.dp).clip(RoundedCornerShape(15.dp))
-                    .background(Color(0xFF162A43))
-                    .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(15.dp))
+                    .background(Color(0xFFFFFFFF))
+                    .border(1.dp, Color(0xFFE6DFF2), RoundedCornerShape(15.dp))
                     .clickable { onBack() },
                 contentAlignment = Alignment.Center
             ) { Text("‹", color = AuraWhite, fontSize = 28.sp) }
@@ -1842,8 +1842,8 @@ private fun DrawerScreen(
         Row(
             modifier = Modifier.fillMaxWidth()
                 .clip(RoundedCornerShape(17.dp))
-                .background(Color(0xFF14263D))
-                .border(1.dp, Color.White.copy(alpha = 0.085f), RoundedCornerShape(17.dp))
+                .background(Color(0xFFFFFFFF))
+                .border(1.dp, Color(0xFFE6DFF2), RoundedCornerShape(17.dp))
                 .padding(start = 14.dp, end = 10.dp, top = 2.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1876,7 +1876,7 @@ private fun DrawerScreen(
         Spacer(Modifier.height(14.dp))
         Row(
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp))
-                .background(Color(0xFF101E31))
+                .background(Color(0xFFE9E3F5))
                 .border(1.dp, Color.White.copy(alpha = 0.055f), RoundedCornerShape(15.dp))
                 .padding(4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -1911,7 +1911,7 @@ private fun DrawerScreen(
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Column(
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp))
-                        .background(Color(0xFF111F33))
+                        .background(Color(0xFFFFFFFF))
                         .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(25.dp))
                         .padding(25.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -1952,7 +1952,7 @@ private fun DrawerScreen(
                         Box(
                             modifier = Modifier.size((iconSize + 12f).coerceIn(54f, 82f).dp)
                                 .clip(RoundedCornerShape(22.dp))
-                                .background(Brush.linearGradient(listOf(Color(0xFF223B58), Color(0xFF122238))))
+                                .background(Brush.linearGradient(listOf(Color(0xFFF5F1FC), Color(0xFFE8E1F7))))
                                 .border(1.dp, Color.White.copy(alpha = 0.075f), RoundedCornerShape(22.dp)),
                             contentAlignment = Alignment.Center
                         ) {
@@ -1960,7 +1960,7 @@ private fun DrawerScreen(
                         }
                         if (labels) {
                             Spacer(Modifier.height(7.dp))
-                            Text(app.title, color = Color(0xFFE5EDF7), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(app.title, color = Color(0xFF302A43), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -2048,7 +2048,7 @@ private fun SettingsScreen(
     val wallpaperPreview = rememberWallpaperBitmap(wallpaperPath)
     Column(
         modifier = Modifier.fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF142C4C), AuraBlack)))
+            .background(Brush.verticalGradient(listOf(Color(0xFFF0ECFA), Color(0xFFF8F5FF))))
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 21.dp, vertical = 16.dp)
     ) {
@@ -2072,7 +2072,7 @@ private fun SettingsScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF4A3A32))
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF8067D9))
         ) {
             Row(
                 modifier = Modifier.padding(17.dp),
@@ -2089,16 +2089,16 @@ private fun SettingsScreen(
                     )
                     Text(
                         if (isDefault) "O AURA está cuidando da sua tela inicial." else "Escolha o AURA como tela inicial do Android.",
-                        color = Color(0xFFB9CBE5),
+                        color = Color(0xFFF1ECFF),
                         fontSize = 10.sp
                     )
                 }
                 Box(
                     modifier = Modifier.size(48.dp).clip(CircleShape)
-                        .background(if (isDefault) Color(0xFF9BE4C0).copy(alpha = 0.15f) else accent.copy(alpha = 0.14f)),
+                        .background(if (isDefault) Color(0xFF329775).copy(alpha = 0.15f) else accent.copy(alpha = 0.14f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(if (isDefault) "✓" else "✦", color = if (isDefault) Color(0xFF9BE4C0) else accent, fontSize = 23.sp)
+                    Text(if (isDefault) "✓" else "✦", color = if (isDefault) Color(0xFF329775) else accent, fontSize = 23.sp)
                 }
             }
         }
@@ -2128,8 +2128,8 @@ private fun SettingsScreen(
         SettingCard {
             Text("Tema", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                ThemePreview("Graphite", themeMode == 0, Color(0xFF142239), accent) { onTheme(0) }
-                ThemePreview("AMOLED", themeMode == 1, Color(0xFF050505), accent) { onTheme(1) }
+                ThemePreview("Graphite", themeMode == 0, Color(0xFFFFFFFF), accent) { onTheme(0) }
+                ThemePreview("Noite", themeMode == 1, Color(0xFF302A43), accent) { onTheme(1) }
             }
             Divider(color = Color.White.copy(alpha = 0.08f))
             Text("Cor de destaque", color = AuraWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
@@ -2212,7 +2212,7 @@ private fun SettingsScreen(
                     Spacer(Modifier.width(9.dp))
                     Text(folder.name, color = AuraWhite, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     TextButton(onClick = { onRemoveFolder(folder) }) {
-                        Text("Remover", color = Color(0xFFFFA3A3), fontSize = 10.sp)
+                        Text("Remover", color = Color(0xFFC65F75), fontSize = 10.sp)
                     }
                 }
             }
@@ -2279,13 +2279,13 @@ private fun SettingsScreen(
                     Text("Acesso às notificações", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text(
                         if (notificationAccessEnabled) "Permissão concedida" else "Permissão ainda não concedida",
-                        color = if (notificationAccessEnabled) Color(0xFF9BE4C0) else AuraMuted,
+                        color = if (notificationAccessEnabled) Color(0xFF329775) else AuraMuted,
                         fontSize = 10.sp
                     )
                 }
                 Box(
                     Modifier.size(9.dp).clip(CircleShape)
-                        .background(if (notificationAccessEnabled) Color(0xFF61E6A7) else Color(0xFFFFC46B))
+                        .background(if (notificationAccessEnabled) Color(0xFF329775) else Color(0xFFB98235))
                 )
             }
             Text(
@@ -2344,7 +2344,7 @@ private fun SettingsScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF142239))
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFFFF))
         ) {
             Column(modifier = Modifier.padding(17.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2352,11 +2352,11 @@ private fun SettingsScreen(
                         Text("Tela inicial padrão", color = AuraWhite, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         Text(
                             if (isDefault) "AURA está selecionado no Android" else "O Android ainda usa outro aplicativo",
-                            color = if (isDefault) Color(0xFF9BE4C0) else AuraMuted,
+                            color = if (isDefault) Color(0xFF329775) else AuraMuted,
                             fontSize = 10.sp
                         )
                     }
-                    Text(if (isDefault) "✓" else "○", color = if (isDefault) Color(0xFF9BE4C0) else accent, fontSize = 23.sp)
+                    Text(if (isDefault) "✓" else "○", color = if (isDefault) Color(0xFF329775) else accent, fontSize = 23.sp)
                 }
                 Spacer(Modifier.height(13.dp))
                 Button(
@@ -2409,7 +2409,7 @@ private fun ThemePreview(
 ) {
     Column(
         modifier = Modifier.width(120.dp).clip(RoundedCornerShape(15.dp))
-            .background(Color(0xFF182B45)).clickable { onClick() }.padding(8.dp)
+            .background(Color(0xFFFFFFFF)).clickable { onClick() }.padding(8.dp)
     ) {
         Box(
             modifier = Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(10.dp))
@@ -2424,7 +2424,7 @@ private fun ThemePreview(
         }
         Spacer(Modifier.height(7.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(title, color = AuraWhite, fontSize = 11.sp, modifier = Modifier.weight(1f))
+            Text(title, color = Color(0xFF302A43), fontSize = 11.sp, modifier = Modifier.weight(1f))
             if (selected) Text("✓", color = accent, fontWeight = FontWeight.Bold)
         }
     }
@@ -2454,8 +2454,8 @@ private fun SettingCard(content: @Composable () -> Unit) {
 private fun SettingSwitch(title: String, description: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = AuraWhite, fontWeight = FontWeight.Medium, fontSize = 13.sp)
-            Text(description, color = AuraMuted, fontSize = 10.sp)
+            Text(title, color = Color(0xFF302A43), fontWeight = FontWeight.Medium, fontSize = 13.sp)
+            Text(description, color = Color(0xFF817990), fontSize = 10.sp)
         }
         Switch(checked = checked, onCheckedChange = onChange)
     }
@@ -2465,11 +2465,11 @@ private fun SettingSwitch(title: String, description: String, checked: Boolean, 
 private fun ChoiceChip(label: String, selected: Boolean, accent: Color, onClick: () -> Unit) {
     Text(
         label,
-        color = if (selected) AuraBlack else AuraWhite,
+        color = if (selected) Color(0xFF302A43) else Color(0xFF817990),
         fontWeight = FontWeight.SemiBold,
         fontSize = 11.sp,
         modifier = Modifier.clip(RoundedCornerShape(12.dp))
-            .background(if (selected) accent else Color(0xFF1D3452))
+            .background(if (selected) accent else Color(0xFFF0ECFA))
             .clickable { onClick() }
             .padding(horizontal = 15.dp, vertical = 9.dp)
     )
