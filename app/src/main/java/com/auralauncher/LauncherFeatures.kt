@@ -157,6 +157,7 @@ fun WidgetWorkspace(
             .background(Color(0x33111F33))
             .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(22.dp))
     ) {
+        val availableWidth = maxWidth
         placements.forEach { placement ->
             var x by remember(placement.widgetId) { mutableFloatStateOf(placement.xDp) }
             var y by remember(placement.widgetId) { mutableFloatStateOf(placement.yDp) }
@@ -181,12 +182,12 @@ fun WidgetWorkspace(
                     Row(
                         modifier = Modifier.fillMaxWidth()
                             .background(Color(0xFF243750))
-                            .pointerInput(placement.widgetId, maxWidth) {
+                            .pointerInput(placement.widgetId, availableWidth) {
                                 detectDragGestures(
                                     onDragEnd = { onMove(placement.copy(xDp = x, yDp = y)) }
                                 ) { change, amount ->
                                     change.consume()
-                                    val maxX = (maxWidth - 270.dp).value.coerceAtLeast(0f)
+                                    val maxX = (availableWidth - 270.dp).value.coerceAtLeast(0f)
                                     x = (x + amount.x / density.density).coerceIn(0f, maxX)
                                     y = (y + amount.y / density.density).coerceIn(0f, 2400f)
                                 }
