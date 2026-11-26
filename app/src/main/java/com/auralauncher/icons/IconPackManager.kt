@@ -17,6 +17,8 @@ data class InstalledIconPack(
  * Unsupported packs safely fall back to the app's original icon.
  */
 object IconPackManager {
+    private val mappingCache = mutableMapOf<String, Map<String, String>>()
+
     private val themeActions = listOf(
         "org.adw.launcher.THEMES",
         "com.novalauncher.THEME",
@@ -48,7 +50,9 @@ object IconPackManager {
         if (iconPackPackage.isNullOrBlank()) return null
         return runCatching {
             val packContext = context.createPackageContext(iconPackPackage, Context.CONTEXT_RESTRICTED)
-            val mappings = readMappings(packContext)
+            val mappings = synchronized(mappingCache) {
+                mappingCache.getOrPut(iconPackPackage) { readMappings(packContext) }
+            }
             val drawableName = mappings["$targetPackage/$targetClass"]
                 ?: mappings["$targetPackage/*"]
                 ?: mappings[targetPackage]
