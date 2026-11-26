@@ -48,7 +48,9 @@ import org.json.JSONObject
 data class WidgetPlacement(
     val widgetId: Int,
     val xDp: Float,
-    val yDp: Float
+    val yDp: Float,
+    val widthDp: Float = 270f,
+    val heightDp: Float = 178f
 )
 
 object WidgetPlacementCodec {
@@ -60,6 +62,8 @@ object WidgetPlacementCodec {
                     .put("id", item.widgetId)
                     .put("x", item.xDp.coerceAtLeast(0f).toDouble())
                     .put("y", item.yDp.coerceAtLeast(0f).toDouble())
+                    .put("w", item.widthDp.coerceIn(180f, 440f).toDouble())
+                    .put("h", item.heightDp.coerceIn(120f, 480f).toDouble())
             )
         }
         return array.toString()
@@ -74,7 +78,9 @@ object WidgetPlacementCodec {
             WidgetPlacement(
                 widgetId = id,
                 xDp = item.optDouble("x", 12.0).toFloat().coerceIn(0f, 2000f),
-                yDp = item.optDouble("y", 12.0).toFloat().coerceIn(0f, 4000f)
+                yDp = item.optDouble("y", 12.0).toFloat().coerceIn(0f, 4000f),
+                widthDp = item.optDouble("w", 270.0).toFloat().coerceIn(180f, 440f),
+                heightDp = item.optDouble("h", 178.0).toFloat().coerceIn(120f, 480f)
             )
         }.distinctBy { it.widgetId }
     }.getOrDefault(emptyList())
@@ -148,9 +154,8 @@ fun WidgetWorkspace(
     onMove: (WidgetPlacement) -> Unit,
     onRemove: (Int) -> Unit
 ) {
-    val maxBottom = placements.maxOfOrNull { it.yDp } ?: 0f
-    val workspaceHeight = (maxBottom + 420f).coerceAtLeast(420f).dp
-    val canvasMaxY = (workspaceHeight - 178.dp).value.coerceAtLeast(0f)
+    val maxBottom = placements.maxOfOrNull { it.yDp + it.heightDp } ?: 0f
+    val workspaceHeight = (maxBottom + 260f).coerceAtLeast(460f).dp
     val density = LocalDensity.current
 
     BoxWithConstraints(
@@ -163,10 +168,18 @@ fun WidgetWorkspace(
         placements.forEach { placement ->
             var x by remember(placement.widgetId) { mutableFloatStateOf(placement.xDp) }
             var y by remember(placement.widgetId) { mutableFloatStateOf(placement.yDp) }
-            LaunchedEffect(placement.xDp, placement.yDp) {
+            var width by remember(placement.widgetId) { mutableFloatStateOf(placement.widthDp) }
+            var height by remember(placement.widgetId) { mutableFloatStateOf(placement.heightDp) }
+            LaunchedEffect(placement.xDp, placement.yDp, placement.widthDp, placement.heightDp) {
                 x = placement.xDp
                 y = placement.yDp
+                width = placement.widthDp
+                height = placement.heightDp
             }
+            val resizeMode = controller.manager.getAppWidgetInfo(placement.widgetId)?.resizeMode ?: 0
+            val canResizeHorizontally = resizeMode and 1 != 0
+            val canResizeVertically = resizeMode and 2 != 0
+            val canResize = canResizeHorizontally || canResizeVertically
             Card(
                 modifier = Modifier
                     .offset {
@@ -175,8 +188,8 @@ fun WidgetWorkspace(
                             with(density) { y.dp.roundToPx() }
                         )
                     }
-                    .width(270.dp)
-                    .height(178.dp),
+                    .width(width.dp)
+                    .height(height.dp),
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF18243A))
             ) {
@@ -187,12 +200,13 @@ fun WidgetWorkspace(
                             .then(
                                 if (editable) Modifier.pointerInput(placement.widgetId, availableWidth) {
                                     detectDragGestures(
-                                        onDragEnd = { onMove(placement.copy(xDp = x, yDp = y)) }
+                                        onDragEnd = { onMove(placement.copy(xDp = x, yDp = y, widthDp = width, heightDp = height)) }
                                     ) { change, amount ->
                                         change.consume()
-                                        val maxX = (availableWidth - 270.dp).value.coerceAtLeast(0f)
+                                        val maxX = (availableWidth - width.dp).value.coerceAtLeast(0f)
+                                        val maxY = (workspaceHeight - height.dp).value.coerceAtLeast(0f)
                                         x = (x + amount.x / density.density).coerceIn(0f, maxX)
-                                        y = (y + amount.y / density.density).coerceIn(0f, canvasMaxY)
+                                        y = (y + amount.y / density.density).coerceIn(0f, maxY)
                                     }
                                 } else Modifier
                             )
@@ -212,9 +226,38 @@ fun WidgetWorkspace(
                         factory = { ctx ->
                             controller.createHostView(placement.widgetId) ?: FrameLayout(ctx)
                         },
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxWidth().weight(1f),
                         update = {}
                     )
+                    if (editable && canResize) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().height(22.dp).background(Color(0xFF243750)),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier.size(22.dp)
+                                    .pointerInput(placement.widgetId, width, height) {
+                                        detectDragGestures(
+                                            onDragEnd = {
+                                                onMove(placement.copy(xDp = x, yDp = y, widthDp = width, heightDp = height))
+                                            }
+                                        ) { change, amount ->
+                                            change.consume()
+                                            if (canResizeHorizontally) {
+                                                width = (width + amount.x / density.density).coerceIn(180f, 440f)
+                                            }
+                                            if (canResizeVertically) {
+                                                height = (height + amount.y / density.density).coerceIn(120f, 480f)
+                                            }
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("◢", color = accent, fontSize = 16.sp)
+                            }
+                        }
+                    }
                 }
             }
         }
