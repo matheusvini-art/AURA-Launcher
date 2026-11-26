@@ -562,7 +562,21 @@ private fun AuraLauncher(
     theme: Int,
     sortMode: Int,
     animations: Boolean,
+    initialWidgetPlacements: List<WidgetPlacement>,
+    widgetController: AuraWidgetHostController,
+    widgetProviders: List<AppWidgetProviderInfo>,
+    installedIconPacks: List<InstalledIconPack>,
+    initialIconPack: String?,
+    notificationAccessEnabled: Boolean,
+    swipeLeftEnabled: Boolean,
+    doubleTapSettingsEnabled: Boolean,
     onSetDefault: () -> Unit,
+    onAddWidget: (AppWidgetProviderInfo) -> Unit,
+    onRemoveWidget: (Int) -> Unit,
+    onMoveWidget: (WidgetPlacement) -> Unit,
+    onSelectIconPack: (String?) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
+    onSaveGestureSettings: (Boolean, Boolean) -> Unit,
     onExportBackup: () -> Unit,
     onImportBackup: () -> Unit,
     onLaunch: (String) -> Unit,
@@ -593,6 +607,19 @@ private fun AuraLauncher(
     var activeFolder by remember { mutableStateOf<AppFolder?>(null) }
     var showFolderBuilder by remember { mutableStateOf(false) }
     var clockNow by remember { mutableStateOf(System.currentTimeMillis()) }
+    var widgetPlacements by remember { mutableStateOf(initialWidgetPlacements) }
+    var showWidgetPicker by remember { mutableStateOf(false) }
+    var selectedIconPack by remember { mutableStateOf(initialIconPack) }
+    var swipeLeftGestureEnabled by remember { mutableStateOf(swipeLeftEnabled) }
+    var doubleTapGestureEnabled by remember { mutableStateOf(doubleTapSettingsEnabled) }
+    var editHomeMode by remember { mutableStateOf(false) }
+
+    LaunchedEffect(initialWidgetPlacements) { widgetPlacements = initialWidgetPlacements }
+    LaunchedEffect(initialIconPack) { selectedIconPack = initialIconPack }
+    LaunchedEffect(swipeLeftEnabled, doubleTapSettingsEnabled) {
+        swipeLeftGestureEnabled = swipeLeftEnabled
+        doubleTapGestureEnabled = doubleTapSettingsEnabled
+    }
 
     LaunchedEffect(isDefaultLauncher) { isDefault = isDefaultLauncher }
     LaunchedEffect(Unit) {
@@ -665,7 +692,18 @@ private fun AuraLauncher(
                     isDefault = isDefault,
                     hiddenCount = hidden.size,
                     folders = folders,
+                    widgetCount = widgetPlacements.size,
+                    installedIconPacks = installedIconPacks,
+                    selectedIconPack = selectedIconPack,
+                    notificationAccessEnabled = notificationAccessEnabled,
+                    swipeLeftEnabled = swipeLeftGestureEnabled,
+                    doubleTapSettingsEnabled = doubleTapGestureEnabled,
                     onBack = { showSettings = false },
+                    onAddWidget = { showWidgetPicker = true },
+                    onSelectIconPack = { selectedIconPack = it; onSelectIconPack(it) },
+                    onOpenNotificationSettings = onOpenNotificationSettings,
+                    onSwipeLeftGesture = { swipeLeftGestureEnabled = it },
+                    onDoubleTapGesture = { doubleTapGestureEnabled = it },
                     onIconSize = { currentIconSize = it },
                     onColumns = { currentColumns = it },
                     onLabels = { showLabels = it },
@@ -687,6 +725,7 @@ private fun AuraLauncher(
                             currentIconSize, currentColumns, showLabels, accentIndex,
                             themeMode, currentSort, motionEnabled
                         )
+                        onSaveGestureSettings(swipeLeftGestureEnabled, doubleTapGestureEnabled)
                         showSettings = false
                     }
                 )
@@ -722,7 +761,24 @@ private fun AuraLauncher(
                     onOpenSettings = { showSettings = true },
                     onSetDefault = onSetDefault,
                     onLaunch = ::launchApp,
-                    onFolder = { activeFolder = it }
+                    onFolder = { activeFolder = it },
+                    widgetPlacements = widgetPlacements,
+                    widgetController = widgetController,
+                    editMode = editHomeMode,
+                    swipeLeftEnabled = swipeLeftGestureEnabled,
+                    doubleTapSettingsEnabled = doubleTapGestureEnabled,
+                    onToggleEditMode = { editHomeMode = !editHomeMode },
+                    onOpenWidgetPicker = { showWidgetPicker = true },
+                    onMoveWidget = { placement ->
+                        widgetPlacements = widgetPlacements.map {
+                            if (it.widgetId == placement.widgetId) placement else it
+                        }
+                        onMoveWidget(placement)
+                    },
+                    onRemoveWidget = { widgetId ->
+                        widgetPlacements = widgetPlacements.filterNot { it.widgetId == widgetId }
+                        onRemoveWidget(widgetId)
+                    }
                 )
             }
         }
@@ -748,6 +804,18 @@ private fun AuraLauncher(
             accent = accentColor,
             onDismiss = { activeFolder = null },
             onLaunch = { app -> activeFolder = null; launchApp(app) }
+        )
+    }
+
+    if (showWidgetPicker) {
+        WidgetPickerDialog(
+            providers = widgetProviders,
+            packageManager = androidx.compose.ui.platform.LocalContext.current.packageManager,
+            onDismiss = { showWidgetPicker = false },
+            onChoose = { provider ->
+                showWidgetPicker = false
+                onAddWidget(provider)
+            }
         )
     }
 
