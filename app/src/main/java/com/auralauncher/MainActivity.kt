@@ -851,7 +851,16 @@ private fun HomeScreen(
     onOpenSettings: () -> Unit,
     onSetDefault: () -> Unit,
     onLaunch: (LaunchableApp) -> Unit,
-    onFolder: (AppFolder) -> Unit
+    onFolder: (AppFolder) -> Unit,
+    widgetPlacements: List<WidgetPlacement>,
+    widgetController: AuraWidgetHostController,
+    editMode: Boolean,
+    swipeLeftEnabled: Boolean,
+    doubleTapSettingsEnabled: Boolean,
+    onToggleEditMode: () -> Unit,
+    onOpenWidgetPicker: () -> Unit,
+    onMoveWidget: (WidgetPlacement) -> Unit,
+    onRemoveWidget: (Int) -> Unit
 ) {
     val hour = time.substringBefore(":").toIntOrNull() ?: 12
     val greeting = when (hour) {
@@ -893,11 +902,11 @@ private fun HomeScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .pointerInput(Unit) {
+                    .pointerInput(swipeLeftEnabled) {
                         var dragX = 0f
                         detectHorizontalDragGestures(
                             onDragEnd = {
-                                if (dragX < -85f) onOpenDrawer()
+                                if (swipeLeftEnabled && dragX < -85f) onOpenDrawer()
                                 dragX = 0f
                             },
                             onDragCancel = { dragX = 0f }
@@ -968,7 +977,12 @@ private fun HomeScreen(
 
                 // Relógio principal com profundidade, órbitas e data.
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().pointerInput(doubleTapSettingsEnabled) {
+                        detectTapGestures(
+                            onDoubleTap = { if (doubleTapSettingsEnabled) onOpenSettings() },
+                            onLongPress = { onToggleEditMode() }
+                        )
+                    },
                     shape = RoundedCornerShape(30.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                 ) {
@@ -1117,6 +1131,61 @@ private fun HomeScreen(
                         accent = accent,
                         modifier = Modifier.weight(1f),
                         onClick = onOpenSettings
+                    )
+                }
+
+                Spacer(Modifier.height(22.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("WIDGETS", color = AuraWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                        Text(
+                            if (widgetPlacements.isEmpty()) "Traga informações para sua Home" else "${widgetPlacements.size} widget(s) no seu espaço",
+                            color = AuraMuted,
+                            fontSize = 9.sp
+                        )
+                    }
+                    TextButton(onClick = onOpenWidgetPicker) {
+                        Text("+ ADICIONAR", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                if (editMode) {
+                    Text(
+                        "MODO DE EDIÇÃO ATIVO · ARRASTE A BARRA SUPERIOR DOS WIDGETS",
+                        color = accent,
+                        fontSize = 8.sp,
+                        letterSpacing = 0.7.sp,
+                        modifier = Modifier.padding(top = 5.dp, bottom = 8.dp)
+                    )
+                }
+                if (widgetPlacements.isEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color(0xFF111F33))
+                            .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(18.dp))
+                            .clickable { onOpenWidgetPicker() }
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            Modifier.size(39.dp).clip(RoundedCornerShape(12.dp)).background(accent.copy(alpha = 0.13f)),
+                            contentAlignment = Alignment.Center
+                        ) { Text("▦", color = accent, fontSize = 20.sp) }
+                        Spacer(Modifier.width(11.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Adicionar widget do Android", color = AuraWhite, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Calendário, clima, música e outros", color = AuraMuted, fontSize = 9.sp)
+                        }
+                        Text("›", color = accent, fontSize = 22.sp)
+                    }
+                } else {
+                    WidgetWorkspace(
+                        placements = widgetPlacements,
+                        controller = widgetController,
+                        accent = accent,
+                        onMove = onMoveWidget,
+                        onRemove = onRemoveWidget
                     )
                 }
 
