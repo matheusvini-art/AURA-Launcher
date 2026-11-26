@@ -826,6 +826,14 @@ private fun AuraLauncher(
         doubleTapGestureEnabled = doubleTapSettingsEnabled
     }
 
+    fun persistCurrentSettings() {
+        onSaveSettings(
+            currentIconSize, currentColumns, showLabels, accentIndex,
+            themeMode, currentSort, motionEnabled
+        )
+        onSaveGestureSettings(swipeLeftGestureEnabled, doubleTapGestureEnabled)
+    }
+
     BackHandler(enabled = showSettings || showDrawer) {
         if (showSettings) {
             persistCurrentSettings()
@@ -907,14 +915,6 @@ private fun AuraLauncher(
     fun launchApp(app: LaunchableApp) {
         recents = (listOf(app.packageName) + recents.filterNot { it == app.packageName }).take(12)
         onLaunch(app.packageName)
-    }
-
-    fun persistCurrentSettings() {
-        onSaveSettings(
-            currentIconSize, currentColumns, showLabels, accentIndex,
-            themeMode, currentSort, motionEnabled
-        )
-        onSaveGestureSettings(swipeLeftGestureEnabled, doubleTapGestureEnabled)
     }
 
     Surface(modifier = Modifier.fillMaxSize(), color = AuraBlack) {
