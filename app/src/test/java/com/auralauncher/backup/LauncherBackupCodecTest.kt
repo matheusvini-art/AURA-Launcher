@@ -21,7 +21,8 @@ class LauncherBackupCodecTest {
             animationsEnabled = false,
             iconPackPackage = "com.example.icons",
             swipeLeftGestureEnabled = false,
-            doubleTapSettingsEnabled = false
+            doubleTapSettingsEnabled = false,
+            widgetPlacementsJson = """[{"id":42,"x":16,"y":240}]"""
         )
 
         assertEquals(original, LauncherBackupCodec.decode(LauncherBackupCodec.encode(original)))
