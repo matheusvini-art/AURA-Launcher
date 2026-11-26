@@ -1118,6 +1118,7 @@ private fun HomeCommandTile(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DrawerScreen(
     apps: List<LaunchableApp>,
